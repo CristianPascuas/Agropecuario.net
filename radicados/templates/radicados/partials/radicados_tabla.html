@@ -1,0 +1,233 @@
+<div class="radicados-panel">
+	<div class="radicados-header">
+		<div>
+			<h4>Historial de actividades adicionales</h4>
+			<small>Listado general con estado, responsable, carga horaria y archivo adjunto.</small>
+		</div>
+		{% if puede_radicar %}
+		<div class="radicados-header-actions">
+			<button type="button" class="btn-primary" id="btnAbrirRadicados">Actividades adicionales</button>
+		</div>
+		{% endif %}
+	</div>
+	<div id="radicadosAlertas"></div>
+	<div class="radicados-filtros" id="filtrosActividadesExtra">
+		<input type="search" id="filtroActividadBusqueda" placeholder="Buscar por nombre, descripcion, responsable, empresa, NIT o lugar">
+		<select id="filtroActividadTipo">
+			<option value="">Todos los tipos</option>
+			{% for valor, etiqueta in tipos_actividad_extra.items %}
+			<option value="{{ valor }}">{{ etiqueta }}</option>
+			{% endfor %}
+		</select>
+		<select id="filtroActividadEstado">
+			<option value="">Todos los estados</option>
+			<option value="0">En espera</option>
+			<option value="3">Revisado</option>
+			<option value="1">Aceptado</option>
+			<option value="2">Rechazado</option>
+		</select>
+		<button type="button" class="btn-secondary" id="btnLimpiarFiltrosActividad">Limpiar</button>
+	</div>
+	<div class="tabla-wrap tabla-wrap-radicados">
+		<table class="tabla-fichas tabla-radicados" id="tablaRadicados">
+			<thead>
+				<tr>
+					<th>Nombre</th>
+					<th>Tipo</th>
+					<th>Descripcion</th>
+					<th>Empresa/Organizacion</th>
+					<th>NIT</th>
+					<th>Lugar</th>
+					<th>Instructor/Dinamizador</th>
+					<th>Inicio</th>
+					<th>Finalizacion</th>
+					<th>Dias</th>
+					<th>Horas diarias</th>
+					<th>Horas totales</th>
+					<th>Fechas seleccionadas</th>
+					<th>Archivo</th>
+					<th>Estado</th>
+					{% if puede_gestionar_radicados %}
+					<th>Acciones</th>
+					{% endif %}
+				</tr>
+			</thead>
+			<tbody id="radicadosBody">
+				{% for radicado in radicados %}
+				<tr
+					data-radicado-id="{{ radicado.id }}"
+					data-tipo="{{ radicado.tipo }}"
+					data-estado="{{ radicado.estado }}"
+					data-search="{{ radicado.search_text }}"
+				>
+					<td>{{ radicado.nombre }}</td>
+					<td>{{ radicado.tipo_texto }}</td>
+					<td>{{ radicado.descripcion }}</td>
+					<td>{{ radicado.empresa_organizacion|default:'-' }}</td>
+					<td>{{ radicado.nit|default:'-' }}</td>
+					<td>{{ radicado.lugar|default:'-' }}</td>
+					<td>{{ radicado.responsable }}</td>
+					<td>{{ radicado.fecha_inicio }}</td>
+					<td>{{ radicado.fecha_fin }}</td>
+					<td>{{ radicado.dias_total }}</td>
+					<td>{{ radicado.horas_diarias }} h</td>
+					<td>{{ radicado.horas_totales }} h</td>
+					<td>{{ radicado.fecha }}</td>
+					<td>
+						{% if radicado.archivo_url %}
+						<a class="btn-link-action" href="{{ radicado.archivo_url }}" download>Descargar archivo</a>
+						{% else %}
+						<span class="texto-muted">Sin archivo</span>
+						{% endif %}
+					</td>
+					<td>
+						<span
+							id="estadoRadicado{{ radicado.id }}"
+							class="estado-radicado estado-radicado-{{ radicado.estado }}"
+						>
+							{{ radicado.estado_texto }}
+						</span>
+					</td>
+					{% if puede_gestionar_radicados %}
+					<td class="acciones-radicado">
+						{% if radicado.puede_aprobar %}
+						<button
+							type="button"
+							class="btn-secondary btn-radicado-accion js-radicado-accion"
+							data-radicado-id="{{ radicado.id }}"
+							data-accion="revisar"
+							{% if radicado.estado == 1 or radicado.estado == 2 or radicado.estado == 3 %}disabled{% endif %}
+						>
+							Marcar revisado
+						</button>
+						<button
+							type="button"
+							class="btn-primary btn-radicado-accion js-radicado-accion"
+							data-radicado-id="{{ radicado.id }}"
+							data-accion="aprobar"
+							{% if radicado.estado == 1 or radicado.estado == 2 %}disabled{% endif %}
+						>
+							Aceptar
+						</button>
+						<button
+							type="button"
+							class="btn-secondary btn-radicado-accion js-radicado-accion"
+							data-radicado-id="{{ radicado.id }}"
+							data-accion="rechazar"
+							{% if radicado.estado == 1 or radicado.estado == 2 %}disabled{% endif %}
+						>
+							Rechazar
+						</button>
+						{% else %}
+						<span class="texto-muted">Solo coordinador</span>
+						{% endif %}
+					</td>
+					{% endif %}
+				</tr>
+				{% empty %}
+				<tr id="filaSinRadicados">
+					<td colspan="{% if puede_gestionar_radicados %}16{% else %}15{% endif %}">No hay actividades adicionales registradas.</td>
+				</tr>
+				{% endfor %}
+			</tbody>
+		</table>
+	</div>
+</div>
+
+<script>
+	(function () {
+		const body = document.getElementById('radicadosBody');
+		const tabla = document.getElementById('tablaRadicados');
+		const filtroBusqueda = document.getElementById('filtroActividadBusqueda');
+		const filtroTipo = document.getElementById('filtroActividadTipo');
+		const filtroEstado = document.getElementById('filtroActividadEstado');
+		const btnLimpiar = document.getElementById('btnLimpiarFiltrosActividad');
+
+		if (!body || !tabla || !filtroBusqueda || !filtroTipo || !filtroEstado || !btnLimpiar) {
+			return;
+		}
+
+		function normalizarTexto(valor) {
+			return String(valor || '')
+				.toLowerCase()
+				.normalize('NFD')
+				.replace(/[\u0300-\u036f]/g, '');
+		}
+
+		function filasDatos() {
+			return Array.from(body.querySelectorAll('tr[data-radicado-id]'));
+		}
+
+		function removerFilaSinResultados() {
+			const fila = document.getElementById('filaSinResultadosRadicados');
+			if (fila) {
+				fila.remove();
+			}
+		}
+
+		function mostrarFilaSinResultados() {
+			removerFilaSinResultados();
+			const fila = document.createElement('tr');
+			fila.id = 'filaSinResultadosRadicados';
+			const celda = document.createElement('td');
+			celda.colSpan = tabla.querySelectorAll('thead th').length;
+			celda.textContent = 'No hay actividades adicionales que coincidan con los filtros.';
+			fila.appendChild(celda);
+			body.appendChild(fila);
+		}
+
+		function aplicarFiltros() {
+			const texto = normalizarTexto(filtroBusqueda.value);
+			const tipo = String(filtroTipo.value || '');
+			const estado = String(filtroEstado.value || '');
+			let visibles = 0;
+
+			const filaSinRadicados = document.getElementById('filaSinRadicados');
+			if (filaSinRadicados) {
+				filaSinRadicados.style.display = 'none';
+			}
+
+			filasDatos().forEach(function (fila) {
+				const filaTipo = String(fila.getAttribute('data-tipo') || '');
+				const filaEstado = String(fila.getAttribute('data-estado') || '');
+				const filaSearch = normalizarTexto(fila.getAttribute('data-search') || fila.textContent);
+
+				const coincideTexto = !texto || filaSearch.indexOf(texto) >= 0;
+				const coincideTipo = !tipo || filaTipo === tipo;
+				const coincideEstado = !estado || filaEstado === estado;
+
+				const mostrar = coincideTexto && coincideTipo && coincideEstado;
+				fila.style.display = mostrar ? '' : 'none';
+				if (mostrar) {
+					visibles += 1;
+				}
+			});
+
+			if (visibles === 0) {
+				if (filasDatos().length === 0 && filaSinRadicados) {
+					filaSinRadicados.style.display = '';
+					removerFilaSinResultados();
+					return;
+				}
+				mostrarFilaSinResultados();
+				return;
+			}
+
+			removerFilaSinResultados();
+		}
+
+		window.actividadesExtraAplicarFiltros = aplicarFiltros;
+
+		filtroBusqueda.addEventListener('input', aplicarFiltros);
+		filtroTipo.addEventListener('change', aplicarFiltros);
+		filtroEstado.addEventListener('change', aplicarFiltros);
+		btnLimpiar.addEventListener('click', function () {
+			filtroBusqueda.value = '';
+			filtroTipo.value = '';
+			filtroEstado.value = '';
+			aplicarFiltros();
+		});
+
+		aplicarFiltros();
+	})();
+</script>

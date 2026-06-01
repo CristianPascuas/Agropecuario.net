@@ -1,0 +1,535 @@
+{% extends 'portal/base_portal.html' %}
+
+{% block portal_content %}
+<style>
+    .usuarios-toolbar {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+    .usuarios-tab-btn {
+        border: 1px solid #d8e1eb;
+        border-radius: 10px;
+        background: #f4f8fc;
+        padding: 14px 16px;
+        text-align: left;
+        cursor: pointer;
+        font-size: 15px;
+        font-weight: 700;
+        line-height: 1.35;
+    }
+    .usuarios-tab-btn small {
+        display: block;
+        margin-top: 4px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #3d5a78;
+    }
+    .usuarios-tab-btn.active {
+        border-color: #0d6efd;
+        background: #e9f2ff;
+        color: #0b4fa8;
+    }
+    .usuarios-search {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        margin-bottom: 14px;
+    }
+    .usuarios-search input {
+        width: 100%;
+        max-width: 360px;
+        border: 1px solid #d0dae6;
+        border-radius: 8px;
+        padding: 10px 12px;
+        font-size: 14px;
+    }
+    .usuarios-search select {
+        min-width: 220px;
+        border: 1px solid #d0dae6;
+        border-radius: 8px;
+        padding: 10px 12px;
+        font-size: 14px;
+    }
+    .usuarios-panel {
+        display: none;
+    }
+    .usuarios-panel.active {
+        display: block;
+    }
+    .usuarios-table-wrap {
+        max-height: 460px;
+        overflow-y: auto;
+        overflow-x: auto;
+        border: 1px solid #e7edf4;
+        border-radius: 10px;
+    }
+    .usuarios-table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 860px;
+        font-size: 14px;
+    }
+    .usuarios-table th,
+    .usuarios-table td {
+        border-bottom: 1px solid #e7edf4;
+        padding: 10px;
+        text-align: left;
+        vertical-align: middle;
+    }
+    .usuarios-table tbody tr:hover {
+        background: #f8fbff;
+    }
+    .usuarios-table thead th {
+        position: sticky;
+        top: 0;
+        background: #f8fbff;
+        z-index: 1;
+    }
+    .badge-rol {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 999px;
+        background: #edf2f7;
+        color: #2f4a68;
+        font-weight: 600;
+        font-size: 12px;
+    }
+    .btn-mini {
+        border: 1px solid #c8d6e5;
+        background: #ffffff;
+        border-radius: 8px;
+        padding: 6px 10px;
+        cursor: pointer;
+        margin-right: 6px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    .btn-mini.primary { border-color: #82b1ff; color: #12458f; }
+    .btn-mini.warn { border-color: #ffcaa7; color: #9a3f00; }
+    .btn-mini.success { border-color: #86d4a8; color: #1d6b3a; }
+    .usuarios-feedback {
+        display: none;
+        margin: 10px 0 16px;
+        border-radius: 8px;
+        padding: 10px 12px;
+        font-size: 14px;
+        font-weight: 600;
+    }
+    .usuarios-feedback.is-success {
+        display: block;
+        color: #174d2f;
+        background: #eaf7ef;
+        border: 1px solid #9ad0ae;
+    }
+    .usuarios-feedback.is-error {
+        display: block;
+        color: #7e1f1f;
+        background: #fdeeee;
+        border: 1px solid #f1b1b1;
+    }
+    .modal-confirm {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(18, 34, 53, 0.45);
+        z-index: 40;
+        align-items: center;
+        justify-content: center;
+        padding: 14px;
+    }
+    .modal-confirm.is-open {
+        display: flex;
+    }
+    .modal-confirm-box {
+        width: 100%;
+        max-width: 460px;
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 20px 40px rgba(25, 39, 57, 0.24);
+        border: 1px solid #dde6f1;
+        padding: 16px;
+    }
+    .modal-confirm-box h4 {
+        margin: 0 0 8px;
+        color: #18324d;
+    }
+    .modal-confirm-box p {
+        margin: 0;
+        color: #4c6077;
+    }
+    .modal-confirm-actions {
+        margin-top: 16px;
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+    }
+    .btn-modal {
+        border: 1px solid #c8d6e5;
+        border-radius: 8px;
+        padding: 8px 12px;
+        font-size: 13px;
+        font-weight: 600;
+        background: #fff;
+        cursor: pointer;
+    }
+    .btn-modal.primary {
+        border-color: #82b1ff;
+        background: #e9f2ff;
+        color: #0b4fa8;
+    }
+</style>
+
+<h3>Gestión de usuarios</h3>
+<p>Busca por nombre o documento y administra por estado.</p>
+<div id="usuarios-feedback" class="usuarios-feedback" aria-live="polite"></div>
+
+<div class="usuarios-toolbar">
+    <button type="button" class="usuarios-tab-btn active" data-target="panel-nuevos">
+        Usuarios nuevos
+        <small>{{ pendientes_count }} pendiente(s) por aprobar</small>
+    </button>
+    <button type="button" class="usuarios-tab-btn" data-target="panel-activos">
+        Usuarios existentes activos
+        <small>{{ activos_count }} usuario(s) con acceso</small>
+    </button>
+    <button type="button" class="usuarios-tab-btn" data-target="panel-sin-acceso">
+        Usuarios sin acceso
+        <small>{{ sin_acceso_count }} usuario(s) bloqueados</small>
+    </button>
+</div>
+
+<div class="usuarios-search">
+    <input id="buscador-usuarios" type="text" placeholder="Buscar por nombre o documento...">
+    <select id="filtro-equipo-usuarios">
+        <option value="">Todos los equipos</option>
+        <option value="sin-equipo">Sin equipo</option>
+        {% for eq in equipos_filtro %}
+        <option value="{{ eq.id_equipo }}">{{ eq.nombre }}</option>
+        {% endfor %}
+    </select>
+</div>
+
+<section id="panel-nuevos" class="usuarios-panel active">
+    {% if pendientes %}
+    <div class="usuarios-table-wrap">
+        <table class="usuarios-table">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Documento</th>
+                    <th>Correo</th>
+                    <th>Rol</th>
+                    <th>Equipo</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in pendientes %}
+                <tr data-search="{{ u.nombre|lower }} {{ u.documento|lower }}" data-equipo="{{ u.equipo_id }}">
+                    <td>{{ u.nombre }}</td>
+                    <td>{{ u.documento }}</td>
+                    <td>{{ u.email }}</td>
+                    <td><span class="badge-rol">{{ u.rol }}</span></td>
+                    <td>{{ u.equipo }}</td>
+                    <td>
+                        <button class="btn-mini success js-aprobar-usuario" data-id="{{ u.id }}">Aprobar</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p>No hay usuarios nuevos pendientes.</p>
+    {% endif %}
+</section>
+
+<section id="panel-activos" class="usuarios-panel">
+    {% if activos %}
+    <div class="usuarios-table-wrap">
+        <table class="usuarios-table">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Documento</th>
+                    <th>Correo</th>
+                    <th>Rol</th>
+                    <th>Equipo</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in activos %}
+                <tr data-search="{{ u.nombre|lower }} {{ u.documento|lower }}" data-equipo="{{ u.equipo_id }}">
+                    <td>{{ u.nombre }}</td>
+                    <td>{{ u.documento }}</td>
+                    <td>{{ u.email }}</td>
+                    <td><span class="badge-rol">{{ u.rol }}</span></td>
+                    <td>{{ u.equipo }}</td>
+                    <td>
+                        {% if u.puede_bloquear %}
+                        <button class="btn-mini warn js-bloquear-usuario" data-id="{{ u.id }}" data-nombre="{{ u.nombre }}">Quitar acceso</button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p>No hay usuarios activos.</p>
+    {% endif %}
+</section>
+
+<section id="panel-sin-acceso" class="usuarios-panel">
+    <p style="margin-top:0;color:#5f748a;">Estos usuarios no pueden iniciar sesión ni operar en el sistema mientras estén en este estado.</p>
+    {% if sin_acceso %}
+    <div class="usuarios-table-wrap">
+        <table class="usuarios-table">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Documento</th>
+                    <th>Correo</th>
+                    <th>Rol</th>
+                    <th>Equipo</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in sin_acceso %}
+                <tr data-search="{{ u.nombre|lower }} {{ u.documento|lower }}" data-equipo="{{ u.equipo_id }}">
+                    <td>{{ u.nombre }}</td>
+                    <td>{{ u.documento }}</td>
+                    <td>{{ u.email }}</td>
+                    <td><span class="badge-rol">{{ u.rol }}</span></td>
+                    <td>{{ u.equipo }}</td>
+                    <td>
+                        {% if u.puede_reintegrar %}
+                        <button class="btn-mini success js-reintegrar-usuario" data-id="{{ u.id }}" data-nombre="{{ u.nombre }}">Reintegrar</button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p>No hay usuarios sin acceso.</p>
+    {% endif %}
+</section>
+
+<div id="modal-confirm-usuarios" class="modal-confirm" aria-hidden="true">
+    <div class="modal-confirm-box" role="dialog" aria-modal="true" aria-labelledby="modal-confirm-title">
+        <h4 id="modal-confirm-title">Confirmar acción</h4>
+        <p id="modal-confirm-mensaje"></p>
+        <div class="modal-confirm-actions">
+            <button id="modal-confirm-cancelar" type="button" class="btn-modal">Cancelar</button>
+            <button id="modal-confirm-aceptar" type="button" class="btn-modal primary">Confirmar</button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    function getCookie(name) {
+        var value = '; ' + document.cookie;
+        var parts = value.split('; ' + name + '=');
+        if (parts.length === 2) return parts.pop().split(';').shift();
+        return '';
+    }
+
+    var csrfToken = getCookie('csrftoken');
+    var feedback = document.getElementById('usuarios-feedback');
+    var modal = document.getElementById('modal-confirm-usuarios');
+    var modalMensaje = document.getElementById('modal-confirm-mensaje');
+    var modalBtnCancelar = document.getElementById('modal-confirm-cancelar');
+    var modalBtnAceptar = document.getElementById('modal-confirm-aceptar');
+    var accionConfirmada = null;
+
+    function showFeedback(texto, tipo) {
+        if (!feedback) return;
+        feedback.classList.remove('is-success', 'is-error');
+        feedback.textContent = texto;
+        feedback.classList.add(tipo === 'success' ? 'is-success' : 'is-error');
+    }
+
+    function abrirConfirmacion(mensaje, onAccept) {
+        if (!modal) {
+            onAccept();
+            return;
+        }
+        accionConfirmada = onAccept;
+        modalMensaje.textContent = mensaje;
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden', 'false');
+    }
+
+    function cerrarConfirmacion() {
+        if (!modal) return;
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+        accionConfirmada = null;
+    }
+
+    function postJson(url) {
+        return fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+        }).then(function (r) {
+            return r.text().then(function (text) {
+                var data;
+                try {
+                    data = text ? JSON.parse(text) : {};
+                } catch (_error) {
+                    data = { ok: false, error: text || 'Error inesperado.' };
+                }
+                if (!r.ok && data.ok !== false) {
+                    data.ok = false;
+                }
+                return data;
+            });
+        });
+    }
+
+    var botonesTab = Array.from(document.querySelectorAll('.usuarios-tab-btn'));
+    var paneles = Array.from(document.querySelectorAll('.usuarios-panel'));
+    var buscador = document.getElementById('buscador-usuarios');
+    var filtroEquipo = document.getElementById('filtro-equipo-usuarios');
+
+    function panelActivo() {
+        return document.querySelector('.usuarios-panel.active');
+    }
+
+    function activarPanel(panelId) {
+        botonesTab.forEach(function (btn) {
+            btn.classList.toggle('active', btn.getAttribute('data-target') === panelId);
+        });
+        paneles.forEach(function (panel) {
+            panel.classList.toggle('active', panel.id === panelId);
+        });
+        aplicarBusqueda();
+    }
+
+    function aplicarBusqueda() {
+        var texto = (buscador.value || '').toLowerCase().trim();
+        var equipoSeleccionado = filtroEquipo ? filtroEquipo.value : '';
+        var panel = panelActivo();
+        if (!panel) return;
+
+        var filas = panel.querySelectorAll('tbody tr[data-search]');
+        filas.forEach(function (fila) {
+            var base = fila.getAttribute('data-search') || '';
+            var eq = fila.getAttribute('data-equipo') || '';
+            var coincideTexto = base.indexOf(texto) !== -1;
+            var coincideEquipo = !equipoSeleccionado || equipoSeleccionado === eq;
+            fila.style.display = coincideTexto && coincideEquipo ? '' : 'none';
+        });
+    }
+
+    botonesTab.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            activarPanel(btn.getAttribute('data-target'));
+        });
+    });
+
+    if (buscador) {
+        buscador.addEventListener('input', aplicarBusqueda);
+    }
+    if (filtroEquipo) {
+        filtroEquipo.addEventListener('change', aplicarBusqueda);
+    }
+
+    if (modalBtnCancelar) {
+        modalBtnCancelar.addEventListener('click', cerrarConfirmacion);
+    }
+    if (modal) {
+        modal.addEventListener('click', function (event) {
+            if (event.target === modal) {
+                cerrarConfirmacion();
+            }
+        });
+    }
+    if (modalBtnAceptar) {
+        modalBtnAceptar.addEventListener('click', function () {
+            if (typeof accionConfirmada === 'function') {
+                var fn = accionConfirmada;
+                cerrarConfirmacion();
+                fn();
+            }
+        });
+    }
+
+    document.querySelectorAll('.js-aprobar-usuario').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var id = btn.getAttribute('data-id');
+            abrirConfirmacion('¿Confirmas aprobar este usuario nuevo?', function () {
+                var url = "{% url 'api_administrador_aprobar_usuario' 0 %}".replace('/0/', '/' + id + '/');
+                postJson(url)
+                    .then(function (data) {
+                        if (!data.ok) {
+                            showFeedback(data.error || 'Error al aprobar usuario.', 'error');
+                            return;
+                        }
+                        showFeedback('Usuario ' + data.nombre + ' aprobado correctamente.', 'success');
+                        setTimeout(function () { location.reload(); }, 800);
+                    })
+                    .catch(function () {
+                        showFeedback('Error de conexión.', 'error');
+                    });
+                });
+        });
+    });
+
+    document.querySelectorAll('.js-bloquear-usuario').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var id = btn.getAttribute('data-id');
+            var nombre = btn.getAttribute('data-nombre');
+            abrirConfirmacion('¿Quitar acceso a ' + nombre + '? El usuario pasará a "Sin acceso".', function () {
+                var url = "{% url 'api_administrador_bloquear_usuario' 0 %}".replace('/0/', '/' + id + '/');
+                postJson(url)
+                    .then(function (data) {
+                        if (!data.ok) {
+                            showFeedback(data.error || 'Error al quitar acceso.', 'error');
+                            return;
+                        }
+                        showFeedback('Usuario ' + data.nombre + ' movido a "Sin acceso".', 'success');
+                        setTimeout(function () { location.reload(); }, 800);
+                    })
+                    .catch(function () {
+                        showFeedback('Error de conexión.', 'error');
+                    });
+                });
+        });
+    });
+
+    document.querySelectorAll('.js-reintegrar-usuario').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var id = btn.getAttribute('data-id');
+            var nombre = btn.getAttribute('data-nombre');
+            abrirConfirmacion('¿Reintegrar a ' + nombre + ' al sistema?', function () {
+                var url = "{% url 'api_administrador_reintegrar_usuario' 0 %}".replace('/0/', '/' + id + '/');
+                postJson(url)
+                    .then(function (data) {
+                        if (!data.ok) {
+                            showFeedback(data.error || 'Error al reintegrar usuario.', 'error');
+                            return;
+                        }
+                        showFeedback('Usuario ' + data.nombre + ' reintegrado.', 'success');
+                        setTimeout(function () { location.reload(); }, 800);
+                    })
+                    .catch(function () {
+                        showFeedback('Error de conexión.', 'error');
+                    });
+                });
+        });
+    });
+})();
+</script>
+{% endblock %}

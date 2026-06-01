@@ -1,0 +1,485 @@
+<div class="modal-overlay" id="modalRadicados" aria-hidden="true">
+	<div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="tituloModalRadicados">
+		<div class="modal-header">
+			<h3 id="tituloModalRadicados">Actividades adicionales</h3>
+			<button type="button" class="modal-close" id="btnCerrarRadicados" aria-label="Cerrar">&times;</button>
+		</div>
+
+		<form class="modal-form" id="formRadicados">
+			<div class="form-grid">
+				<div class="field-group">
+					<label for="nombreRadicado">Nombre de actividad adicional</label>
+					<input type="text" id="nombreRadicado" name="nombre_radicado" required>
+				</div>
+
+				<div class="field-group">
+					<label for="tipoRadicado">Tipo de actividad adicional</label>
+					<select id="tipoRadicado" name="tipo_radicado" required>
+						<option value="">Seleccionar...</option>
+						<option value="1">Normalización y Certificación de Competencias Laborales</option>
+						<option value="2">Diseño y Desarrollo Curricular</option>
+						<option value="3">Actividades de Emprendimiento</option>
+						<option value="4">Seguimiento y Desarrollo Etapa Práctica</option>
+						<option value="5">Formación y Capacitación</option>
+						<option value="6">Permiso Sindical</option>
+						<option value="7">Unidad Productiva</option>
+						<option value="8">Proyectos de Investigación Aplicada</option>
+						<option value="9">Fortalecimiento del Idioma para Instructores</option>
+						<option value="10">Otros</option>
+					</select>
+				</div>
+
+				<div class="field-group" style="grid-column: 1 / -1;">
+					<label for="descripcionRadicado">Descripcion de actividad adicional</label>
+					<textarea id="descripcionRadicado" name="descripcion_radicado" rows="3" required></textarea>
+				</div>
+
+				<div class="field-group">
+					<label for="empresaOrganizacion">EMPRESA/ ORGANIZACION</label>
+					<input type="text" id="empresaOrganizacion" name="empresa_organizacion" required>
+				</div>
+
+				<div class="field-group">
+					<label for="nitActividad">NIT</label>
+					<input type="text" id="nitActividad" name="nit" required>
+				</div>
+
+				<div class="field-group" style="grid-column: 1 / -1;">
+					<label for="lugarActividad">Lugar</label>
+					<input type="text" id="lugarActividad" name="lugar" required>
+				</div>
+
+				<div class="field-group" style="grid-column: 1 / -1;">
+					<label>Seleccion de dias</label>
+					<input type="hidden" id="diasSeleccionadosRadicado" name="dias_seleccionados" required>
+					<div class="mini-calendar" id="miniCalendarRadicados">
+						<div class="mini-calendar-head">
+							<button type="button" class="btn-secondary btn-mini-nav" id="btnCalPrev">&lt;</button>
+							<strong id="miniCalendarMes"></strong>
+							<button type="button" class="btn-secondary btn-mini-nav" id="btnCalNext">&gt;</button>
+						</div>
+						<div class="mini-calendar-grid mini-calendar-weekdays">
+							<span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span>
+						</div>
+						<div class="mini-calendar-grid" id="miniCalendarDias"></div>
+					</div>
+					<small id="resumenDiasSeleccionados">No hay dias seleccionados.</small>
+				</div>
+
+				<div class="field-group">
+					<label for="horaInicioRadicado">Hora inicio</label>
+					<input type="time" id="horaInicioRadicado" name="hora_inicio" required>
+				</div>
+
+				<div class="field-group">
+					<label for="horaFinRadicado">Hora fin</label>
+					<input type="time" id="horaFinRadicado" name="hora_fin" required>
+				</div>
+
+				<div class="field-group" style="grid-column: 1 / -1;">
+					<label for="archivoExcelRadicado">Adjuntar archivo PDF</label>
+					<input type="file" id="archivoExcelRadicado" name="archivo_adjunto" accept="application/pdf,.pdf" required>
+				</div>
+			</div>
+
+			<div class="modal-footer">
+				<button type="button" class="btn-secondary" id="btnCancelarRadicados">Cancelar</button>
+				<button type="submit" class="btn-primary">Guardar actividad adicional</button>
+			</div>
+		</form>
+	</div>
+</div>
+
+<script>
+	document.addEventListener('DOMContentLoaded', function initActividadesExtraModal() {
+		const modal = document.getElementById('modalRadicados');
+		const abrir = document.getElementById('btnAbrirRadicados');
+		const cerrar = document.getElementById('btnCerrarRadicados');
+		const cancelar = document.getElementById('btnCancelarRadicados');
+		const form = document.getElementById('formRadicados');
+		const alertas = document.getElementById('radicadosAlertas');
+		const radicadosBody = document.getElementById('radicadosBody');
+		const inputDiasSeleccionados = document.getElementById('diasSeleccionadosRadicado');
+		const resumenDias = document.getElementById('resumenDiasSeleccionados');
+		const calendarioMes = document.getElementById('miniCalendarMes');
+		const calendarioDias = document.getElementById('miniCalendarDias');
+		const btnCalPrev = document.getElementById('btnCalPrev');
+		const btnCalNext = document.getElementById('btnCalNext');
+		const inputHoraInicio = document.getElementById('horaInicioRadicado');
+		const inputHoraFin = document.getElementById('horaFinRadicado');
+		const inputArchivo = document.getElementById('archivoExcelRadicado');
+		const endpointCrear = "{% url 'api_instructor_radicados_crear' %}";
+		const endpointTraslapesBase = "{% url 'api_instructor_radicados_traslapes_mes' 2000 1 %}";
+		const mesesEs = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+		const diasSeleccionados = new Set();
+		let diasBloqueados = new Set();
+		let secuenciaTraslapes = 0;
+		let calendarioCursor = new Date();
+		calendarioCursor = new Date(calendarioCursor.getFullYear(), calendarioCursor.getMonth(), 1);
+
+		if (!modal || !abrir || !cerrar || !cancelar || !form) {
+			return;
+		}
+
+		function abrirModal() {
+			modal.classList.add('open');
+			modal.setAttribute('aria-hidden', 'false');
+			actualizarDiasBloqueados();
+		}
+
+		function cerrarModal() {
+			modal.classList.remove('open');
+			modal.setAttribute('aria-hidden', 'true');
+		}
+
+		function getCookie(name) {
+			const value = '; ' + document.cookie;
+			const parts = value.split('; ' + name + '=');
+			if (parts.length === 2) {
+				return parts.pop().split(';').shift();
+			}
+			return '';
+		}
+
+		function toJson(response) {
+			return response.text().then(function (text) {
+				if (!response.ok) {
+					throw new Error(text || 'Error HTTP ' + response.status);
+				}
+				try {
+					return text ? JSON.parse(text) : {};
+				} catch (err) {
+					return {};
+				}
+			});
+		}
+
+		function limpiarSinRadicados() {
+			const fila = document.getElementById('filaSinRadicados');
+			if (fila) {
+				fila.remove();
+			}
+			const filaSinResultados = document.getElementById('filaSinResultadosRadicados');
+			if (filaSinResultados) {
+				filaSinResultados.remove();
+			}
+		}
+
+		function estadoClase(estado) {
+			if (Number(estado) === 1) {
+				return 'estado-radicado estado-radicado-1';
+			}
+			if (Number(estado) === 2) {
+				return 'estado-radicado estado-radicado-2';
+			}
+			if (Number(estado) === 3) {
+				return 'estado-radicado estado-radicado-3';
+			}
+			return 'estado-radicado estado-radicado-0';
+		}
+
+		function escapeHtml(texto) {
+			return String(texto || '')
+				.replace(/&/g, '&amp;')
+				.replace(/</g, '&lt;')
+				.replace(/>/g, '&gt;')
+				.replace(/"/g, '&quot;')
+				.replace(/'/g, '&#039;');
+		}
+
+		function isoDate(d) {
+			const y = d.getFullYear();
+			const m = String(d.getMonth() + 1).padStart(2, '0');
+			const day = String(d.getDate()).padStart(2, '0');
+			return y + '-' + m + '-' + day;
+		}
+
+		function minutosHora(valor) {
+			if (!valor || valor.indexOf(':') < 0) {
+				return null;
+			}
+			const partes = valor.split(':');
+			const h = Number(partes[0]);
+			const m = Number(partes[1]);
+			if (!Number.isFinite(h) || !Number.isFinite(m)) {
+				return null;
+			}
+			return (h * 60) + m;
+		}
+
+		function rangoHorasValido() {
+			if (!inputHoraInicio || !inputHoraFin) {
+				return false;
+			}
+			const ini = minutosHora(inputHoraInicio.value);
+			const fin = minutosHora(inputHoraFin.value);
+			if (ini === null || fin === null) {
+				return false;
+			}
+			return fin > ini;
+		}
+
+		function endpointTraslapesMes(anio, mes) {
+			return endpointTraslapesBase.replace('/2000/1/', '/' + anio + '/' + mes + '/');
+		}
+
+		function actualizarDiasBloqueados() {
+			if (!rangoHorasValido()) {
+				diasBloqueados = new Set();
+				renderCalendario();
+				return Promise.resolve();
+			}
+
+			const year = calendarioCursor.getFullYear();
+			const month = calendarioCursor.getMonth() + 1;
+			const query = '?hora_inicio=' + encodeURIComponent(inputHoraInicio.value) + '&hora_fin=' + encodeURIComponent(inputHoraFin.value);
+			const marcador = ++secuenciaTraslapes;
+
+			return fetch(endpointTraslapesMes(year, month) + query)
+				.then(toJson)
+				.then(function (data) {
+					if (marcador !== secuenciaTraslapes) {
+						return;
+					}
+					diasBloqueados = new Set(Array.isArray(data.fechas_bloqueadas) ? data.fechas_bloqueadas : []);
+					Array.from(diasSeleccionados).forEach(function (fecha) {
+						if (diasBloqueados.has(fecha)) {
+							diasSeleccionados.delete(fecha);
+						}
+					});
+					actualizarDiasSeleccionadosUI();
+					renderCalendario();
+				})
+				.catch(function () {
+					diasBloqueados = new Set();
+					renderCalendario();
+				});
+		}
+
+		function actualizarDiasSeleccionadosUI() {
+			const dias = Array.from(diasSeleccionados).sort();
+			if (inputDiasSeleccionados) {
+				inputDiasSeleccionados.value = JSON.stringify(dias);
+			}
+			if (!resumenDias) {
+				return;
+			}
+			if (!dias.length) {
+				resumenDias.textContent = 'No hay dias seleccionados.';
+				return;
+			}
+			if (dias.length <= 3) {
+				resumenDias.textContent = 'Dias seleccionados: ' + dias.join(', ');
+				return;
+			}
+			resumenDias.textContent = 'Dias seleccionados: ' + dias.length + ' (' + dias[0] + ' a ' + dias[dias.length - 1] + ')';
+		}
+
+		function toggleDiaSeleccion(iso) {
+			if (diasBloqueados.has(iso)) {
+				return;
+			}
+			if (diasSeleccionados.has(iso)) {
+				diasSeleccionados.delete(iso);
+			} else {
+				diasSeleccionados.add(iso);
+			}
+			actualizarDiasSeleccionadosUI();
+			renderCalendario();
+		}
+
+		function renderCalendario() {
+			if (!calendarioMes || !calendarioDias) {
+				return;
+			}
+
+			const year = calendarioCursor.getFullYear();
+			const month = calendarioCursor.getMonth();
+			calendarioMes.textContent = mesesEs[month] + ' ' + year;
+			calendarioDias.innerHTML = '';
+
+			const primerDia = new Date(year, month, 1);
+			const ultimoDia = new Date(year, month + 1, 0);
+			const offset = (primerDia.getDay() + 6) % 7;
+
+			for (let i = 0; i < offset; i += 1) {
+				const vacio = document.createElement('span');
+				vacio.className = 'mini-dia mini-dia-vacio';
+				calendarioDias.appendChild(vacio);
+			}
+
+			for (let day = 1; day <= ultimoDia.getDate(); day += 1) {
+				const actual = new Date(year, month, day);
+				const iso = isoDate(actual);
+				const bloqueado = diasBloqueados.has(iso);
+				const btn = document.createElement('button');
+				btn.type = 'button';
+				btn.className = 'mini-dia' + (diasSeleccionados.has(iso) ? ' selected' : '') + (bloqueado ? ' mini-dia-bloqueado' : '');
+				btn.textContent = String(day);
+				if (bloqueado) {
+					btn.disabled = true;
+					btn.title = 'Bloqueado por traslape con una programacion existente en ese horario.';
+				}
+				btn.addEventListener('click', function () {
+					toggleDiaSeleccion(iso);
+				});
+				calendarioDias.appendChild(btn);
+			}
+		}
+
+		function reiniciarCalendario() {
+			diasSeleccionados.clear();
+			actualizarDiasSeleccionadosUI();
+			actualizarDiasBloqueados();
+		}
+
+		function agregarFilaRadicado(radicado) {
+			if (!radicadosBody || !radicado || !radicado.id) {
+				return;
+			}
+			const encabezadoAcciones = document.querySelector('#tablaRadicados thead th:last-child');
+			const tieneAcciones = Boolean(encabezadoAcciones && encabezadoAcciones.textContent.trim() === 'Acciones');
+			const searchText = String(
+				radicado.search_text
+				|| [
+					radicado.nombre,
+					radicado.tipo_texto,
+					radicado.descripcion,
+					radicado.empresa_organizacion,
+					radicado.nit,
+					radicado.lugar,
+					radicado.responsable,
+					radicado.fecha_inicio,
+					radicado.fecha_fin,
+				].join(' ')
+			).toLowerCase();
+
+			limpiarSinRadicados();
+			const fila = document.createElement('tr');
+			fila.setAttribute('data-radicado-id', String(radicado.id));
+			fila.setAttribute('data-tipo', String(radicado.tipo || ''));
+			fila.setAttribute('data-estado', String(radicado.aprobado || 0));
+			fila.setAttribute('data-search', searchText);
+			fila.innerHTML = ''
+				+ '<td>' + escapeHtml(radicado.nombre) + '</td>'
+				+ '<td>' + escapeHtml(radicado.tipo_texto || '') + '</td>'
+				+ '<td>' + escapeHtml(radicado.descripcion) + '</td>'
+				+ '<td>' + escapeHtml(radicado.empresa_organizacion || '-') + '</td>'
+				+ '<td>' + escapeHtml(radicado.nit || '-') + '</td>'
+				+ '<td>' + escapeHtml(radicado.lugar || '-') + '</td>'
+				+ '<td>' + escapeHtml(radicado.responsable || '-') + '</td>'
+				+ '<td>' + escapeHtml(radicado.fecha_inicio || '-') + '</td>'
+				+ '<td>' + escapeHtml(radicado.fecha_fin || '-') + '</td>'
+				+ '<td>' + escapeHtml(radicado.dias_total || '0') + '</td>'
+				+ '<td>' + escapeHtml(radicado.horas_diarias || '0') + ' h</td>'
+				+ '<td>' + escapeHtml(radicado.horas_totales || '0') + ' h</td>'
+				+ '<td>' + escapeHtml(radicado.fecha) + '</td>'
+				+ '<td>' + (radicado.archivo_url
+					? '<a class="btn-link-action" href="' + escapeHtml(radicado.archivo_url) + '" download>Descargar archivo</a>'
+					: '<span class="texto-muted">Sin archivo</span>') + '</td>'
+				+ '<td><span id="estadoRadicado' + escapeHtml(radicado.id) + '" class="' + estadoClase(radicado.aprobado) + '">' + escapeHtml(radicado.estado_texto || 'En espera') + '</span></td>'
+				+ (tieneAcciones ? '<td class="acciones-radicado"><span class="texto-muted">Solo coordinador</span></td>' : '');
+
+			radicadosBody.prepend(fila);
+			if (typeof window.actividadesExtraAplicarFiltros === 'function') {
+				window.actividadesExtraAplicarFiltros();
+			}
+		}
+
+		function mostrarAlerta(mensaje, tipo) {
+			if (!alertas) {
+				return;
+			}
+			alertas.innerHTML = '';
+			const div = document.createElement('div');
+			div.className = (tipo === 'error') ? 'alert-programacion error' : 'alert-success';
+			div.textContent = mensaje;
+			alertas.appendChild(div);
+		}
+
+		function archivoPdfValido(archivo) {
+			if (!archivo) {
+				return false;
+			}
+			const nombre = String(archivo.name || '').toLowerCase();
+			if (!nombre.endsWith('.pdf')) {
+				return false;
+			}
+			const tipo = String(archivo.type || '').toLowerCase();
+			if (!tipo) {
+				return true;
+			}
+			return tipo.indexOf('pdf') >= 0 || tipo === 'application/octet-stream';
+		}
+
+		abrir.addEventListener('click', abrirModal);
+		cerrar.addEventListener('click', cerrarModal);
+		cancelar.addEventListener('click', cerrarModal);
+		if (btnCalPrev) {
+			btnCalPrev.addEventListener('click', function () {
+				calendarioCursor = new Date(calendarioCursor.getFullYear(), calendarioCursor.getMonth() - 1, 1);
+				actualizarDiasBloqueados();
+			});
+		}
+		if (btnCalNext) {
+			btnCalNext.addEventListener('click', function () {
+				calendarioCursor = new Date(calendarioCursor.getFullYear(), calendarioCursor.getMonth() + 1, 1);
+				actualizarDiasBloqueados();
+			});
+		}
+		if (inputHoraInicio) {
+			inputHoraInicio.addEventListener('change', actualizarDiasBloqueados);
+		}
+		if (inputHoraFin) {
+			inputHoraFin.addEventListener('change', actualizarDiasBloqueados);
+		}
+
+		modal.addEventListener('click', function (event) {
+			if (event.target === modal) {
+				cerrarModal();
+			}
+		});
+
+		document.addEventListener('keydown', function (event) {
+			if (event.key === 'Escape' && modal.classList.contains('open')) {
+				cerrarModal();
+			}
+		});
+
+		form.addEventListener('submit', function (event) {
+			event.preventDefault();
+			if (!diasSeleccionados.size) {
+				mostrarAlerta('Selecciona al menos un dia en el calendario.', 'error');
+				return;
+			}
+			if (!inputArchivo || !inputArchivo.files || !inputArchivo.files.length || !archivoPdfValido(inputArchivo.files[0])) {
+				mostrarAlerta('Solo se permite adjuntar archivos PDF (.pdf).', 'error');
+				return;
+			}
+			actualizarDiasSeleccionadosUI();
+			const formData = new FormData(form);
+
+			fetch(endpointCrear, {
+				method: 'POST',
+				headers: {
+					'X-CSRFToken': getCookie('csrftoken'),
+				},
+				body: formData,
+			})
+				.then(toJson)
+				.then(function (data) {
+					agregarFilaRadicado(data.radicado || null);
+					form.reset();
+					reiniciarCalendario();
+					cerrarModal();
+					mostrarAlerta('Actividad adicional guardada correctamente. Estado inicial: en espera.', 'ok');
+				})
+				.catch(function (error) {
+					mostrarAlerta('No se pudo guardar la actividad adicional: ' + error.message, 'error');
+				});
+		});
+
+		actualizarDiasSeleccionadosUI();
+		actualizarDiasBloqueados();
+	});
+</script>

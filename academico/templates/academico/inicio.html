@@ -1,0 +1,16 @@
+{% extends 'academico/base_auth.html' %}
+
+{% block title %}Inicio{% endblock %}
+
+{% block content %}
+<h1>Bienvenido</h1>
+<p>Has ingresado correctamente a <strong>Agropecuario.net</strong>.</p>
+<p><strong>Nombre:</strong> {{ usuario.nombre }} {{ usuario.apellido }}</p>
+<p><strong>Documento:</strong> {{ usuario.documento }}</p>
+<p><strong>Correo:</strong> {{ usuario.email }}</p>
+
+<form method="post" action="{% url 'logout' %}">
+    {% csrf_token %}
+    <button type="submit">Cerrar sesión</button>
+</form>
+{% endblock %}

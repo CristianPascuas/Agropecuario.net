@@ -1,0 +1,94 @@
+{% extends 'portal/base_portal.html' %}
+
+{% block portal_content %}
+<h3>Bienvenido coordinador</h3>
+<p>Esta es tu página principal con acceso a programaciones, equipos y curricular.</p>
+
+{% include 'radicados/partials/radicados_tabla.html' %}
+
+<script>
+	(function () {
+		const botones = Array.from(document.querySelectorAll('.js-radicado-accion'));
+		const endpointBase = "{% url 'api_radicados_cambiar_estado' 0 %}";
+
+		if (!botones.length) {
+			return;
+		}
+
+		function getCookie(name) {
+			const value = '; ' + document.cookie;
+			const parts = value.split('; ' + name + '=');
+			if (parts.length === 2) {
+				return parts.pop().split(';').shift();
+			}
+			return '';
+		}
+
+		function endpointPorId(id) {
+			return endpointBase.replace('/0/', '/' + id + '/');
+		}
+
+		function aplicarEstado(id, estado, estadoTexto) {
+			const estadoNum = Number(estado || 0);
+			const fila = document.querySelector('tr[data-radicado-id="' + id + '"]');
+			const spanEstado = document.getElementById('estadoRadicado' + id);
+			if (spanEstado) {
+				spanEstado.textContent = estadoTexto;
+				spanEstado.className = 'estado-radicado estado-radicado-' + estadoNum;
+			}
+			if (fila) {
+				fila.setAttribute('data-estado', String(estadoNum));
+			}
+
+			const btnRevisar = document.querySelector('.js-radicado-accion[data-radicado-id="' + id + '"][data-accion="revisar"]');
+			const btnAprobar = document.querySelector('.js-radicado-accion[data-radicado-id="' + id + '"][data-accion="aprobar"]');
+			const btnRechazar = document.querySelector('.js-radicado-accion[data-radicado-id="' + id + '"][data-accion="rechazar"]');
+			const bloqueadoFinal = estadoNum === 1 || estadoNum === 2;
+			const revisado = estadoNum === 3;
+			if (btnRevisar) {
+				btnRevisar.disabled = bloqueadoFinal || revisado;
+			}
+			if (btnAprobar) {
+				btnAprobar.disabled = bloqueadoFinal;
+			}
+			if (btnRechazar) {
+				btnRechazar.disabled = bloqueadoFinal;
+			}
+			if (typeof window.actividadesExtraAplicarFiltros === 'function') {
+				window.actividadesExtraAplicarFiltros();
+			}
+		}
+
+		botones.forEach(function (boton) {
+			boton.addEventListener('click', function () {
+				const id = boton.getAttribute('data-radicado-id');
+				const accion = boton.getAttribute('data-accion');
+				const data = new FormData();
+				data.append('accion', accion);
+
+				fetch(endpointPorId(id), {
+					method: 'POST',
+					headers: {
+						'X-CSRFToken': getCookie('csrftoken'),
+					},
+					body: data,
+				})
+					.then(function (response) {
+						return response.text().then(function (text) {
+							if (!response.ok) {
+								throw new Error(text || 'No se pudo actualizar el estado.');
+							}
+							return text ? JSON.parse(text) : {};
+						});
+					})
+					.then(function (payload) {
+						aplicarEstado(id, payload.estado, payload.estado_texto || 'En espera');
+					})
+					.catch(function (error) {
+						window.alert(error.message);
+					});
+			});
+		});
+	})();
+</script>
+{% endblock %}

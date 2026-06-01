@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Agropecuario.net{% endblock %}</title>
+    <style>
+        :root {
+            --verde: #0e8f3a;
+            --verde-oscuro: #075a26;
+            --blanco: #ffffff;
+            --negro: #0f0f0f;
+            --gris: #f3f5f4;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: "Segoe UI", Tahoma, sans-serif;
+            background: linear-gradient(180deg, #eaf5ee 0%, var(--gris) 100%);
+            color: var(--negro);
+        }
+
+        .contenedor {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .tarjeta {
+            width: 100%;
+            max-width: 520px;
+            background: var(--blanco);
+            border: 1px solid #d7d7d7;
+            border-top: 8px solid var(--verde);
+            border-radius: 12px;
+            padding: 24px 24px 20px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+        }
+
+        .marca {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+
+        .marca img {
+            width: 46px;
+            height: 46px;
+            display: block;
+        }
+
+        .marca-titulos {
+            line-height: 1.1;
+        }
+
+        .marca-titulos strong {
+            display: block;
+            color: var(--verde-oscuro);
+            font-size: 20px;
+        }
+
+        .marca-titulos span {
+            font-size: 12px;
+            color: #333;
+        }
+
+        h1 {
+            margin-top: 0;
+            margin-bottom: 16px;
+            color: var(--verde-oscuro);
+            font-size: 23px;
+        }
+
+        p {
+            margin-top: 0;
+            margin-bottom: 14px;
+            color: #2d2d2d;
+            font-size: 14px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        input,
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #2a2a2a;
+            border-radius: 6px;
+            margin-bottom: 12px;
+            font-size: 14px;
+            background: var(--blanco);
+        }
+
+        input:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--verde);
+            box-shadow: 0 0 0 2px rgba(14, 143, 58, 0.2);
+        }
+
+        .fila {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .campo {
+            min-width: 0;
+        }
+
+        button {
+            width: 100%;
+            background: var(--verde);
+            color: var(--blanco);
+            border: none;
+            border-radius: 6px;
+            padding: 11px;
+            font-size: 15px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .enlace {
+            margin-top: 14px;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .enlace a {
+            color: var(--verde-oscuro);
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .errores {
+            background: #fef2f2;
+            border: 1px solid #991b1b;
+            color: #991b1b;
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 12px;
+            font-size: 14px;
+        }
+
+        .mensajes {
+            margin-bottom: 12px;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 14px;
+            border: 1px solid var(--negro);
+            background: #dcfce7;
+        }
+
+        .oculto {
+            display: none;
+        }
+
+        @media (max-width: 540px) {
+            .tarjeta {
+                padding: 20px 16px;
+            }
+
+            .marca-titulos strong {
+                font-size: 18px;
+            }
+
+            .fila {
+                grid-template-columns: 1fr;
+                gap: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="contenedor">
+    <div class="tarjeta">
+        {% load static %}
+        <div class="marca">
+            <img src="{% static 'academico/img/logo-sena.png' %}" alt="Logo SENA">
+            <div class="marca-titulos">
+                <strong>Agropecuario.net</strong>
+                <span>Sistema académico SENA</span>
+            </div>
+        </div>
+        {% block content %}{% endblock %}
+    </div>
+</div>
+{% block scripts %}{% endblock %}
+</body>
+</html>

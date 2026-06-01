@@ -1,0 +1,42 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ titulo }} - Agropecuario.net</title>
+    <link rel="stylesheet" href="{% static 'portal/portal.css' %}">
+</head>
+<body>
+<div class="layout">
+    <aside class="sidebar">
+        <div class="brand">
+            <img src="{% static 'academico/img/logo-sena.png' %}" alt="Logo SENA">
+            <div>
+                <h1>Agropecuario.net</h1>
+                <p>{{ rol_slug|title }}</p>
+            </div>
+        </div>
+        <nav>
+            {% for item in menu_items %}
+                <a class="menu-link {% if ruta_actual == item.url_name %}active{% endif %}" href="{% url item.url_name %}">{{ item.label }}</a>
+            {% endfor %}
+        </nav>
+    </aside>
+
+    <main class="content">
+        <header class="topbar">
+            <div>
+                <h2>{{ titulo }}</h2>
+                <small>{{ usuario.nombre }} {{ usuario.apellido }} - {{ usuario.documento }}</small>
+            </div>
+            <a class="btn-logout" href="{% url 'logout' %}">Cerrar sesión</a>
+        </header>
+
+        <section class="panel">
+            {% block portal_content %}{% endblock %}
+        </section>
+    </main>
+</div>
+</body>
+</html>

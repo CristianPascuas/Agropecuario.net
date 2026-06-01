@@ -1,0 +1,229 @@
+{% extends 'portal/base_portal.html' %}
+
+{% block portal_content %}
+<h3>Ficha {{ ficha.codigo_ficha }}</h3>
+
+<div class="resumen-grid">
+    <div class="resumen-card">
+        <span class="resumen-label">Programa</span>
+        <strong>{{ ficha.id_programa_formacion.nombre }}</strong>
+        <small>Código {{ ficha.id_programa_formacion.codigo }}</small>
+    </div>
+    <div class="resumen-card">
+        <span class="resumen-label">Líder de ficha</span>
+        <strong>
+            {% if ficha.id_lider_ficha %}
+                {{ ficha.id_lider_ficha.nombre }} {{ ficha.id_lider_ficha.apellido }}
+            {% else %}
+                Sin asignar
+            {% endif %}
+        </strong>
+        <small>Equipo {{ ficha.id_equipo.nombre }}</small>
+    </div>
+    <div class="resumen-card">
+        <span class="resumen-label">Horario</span>
+        <strong>{{ ficha.id_horario.horario|title }}</strong>
+        <small>{{ ficha.id_horario.horas }} horas/semana</small>
+    </div>
+    <div class="resumen-card">
+        <span class="resumen-label">Ambiente / Municipio</span>
+        <strong>{{ ficha.id_ambiente.ambiente }}</strong>
+        <small>{{ ficha.codigo_municipio.municipio|title }}</small>
+    </div>
+    <div class="resumen-card resumen-card-metric">
+        <span class="resumen-label">Total horas programa</span>
+        <strong>{{ total_horas_programa }}</strong>
+    </div>
+    <div class="resumen-card resumen-card-metric">
+        <span class="resumen-label">Total horas etapa lectiva</span>
+        <strong>{{ total_horas_lectiva }}</strong>
+    </div>
+    <div class="resumen-card resumen-card-metric">
+        <span class="resumen-label">Total horas completadas</span>
+        <strong>{{ total_horas_completadas }}</strong>
+    </div>
+    <div class="resumen-card">
+        <span class="resumen-label">Fechas ficha</span>
+        <strong>{{ ficha.fecha_inicio }} a {{ ficha.fecha_fin }}</strong>
+    </div>
+</div>
+
+<div class="acciones-panel">
+    <a class="btn-secondary btn-inline" href="{% url 'dinamizador_programar_fichas' %}">Volver a fichas</a>
+    <form method="post" action="{% url 'dinamizador_toggle_modo_pruebas_programacion' %}" class="acciones-inline-form">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{% url 'dinamizador_ficha_programacion' ficha.codigo_ficha %}">
+        <input type="hidden" name="activar" value="{% if modo_pruebas_programacion %}0{% else %}1{% endif %}">
+        <button type="submit" class="{% if modo_pruebas_programacion %}btn-test-mode-on{% else %}btn-test-mode-off{% endif %}">
+            {% if modo_pruebas_programacion %}Modo pruebas activo (clic para desactivar){% else %}Activar modo pruebas{% endif %}
+        </button>
+    </form>
+</div>
+
+<div class="meses-card">
+    <h4>Programación mensual por ficha</h4>
+    <p>Mes actual: solo edición. Meses futuros: creación habilitada en las últimas 2 semanas del mes actual.</p>
+
+    <div class="meses-grid">
+        {% for mes in meses_rango %}
+            {% if mes.permite_crear %}
+                <a class="btn-mes btn-mes-link" href="{% url 'dinamizador_ficha_programacion_mes' ficha.codigo_ficha mes.anio mes.mes %}">
+                    {{ mes.nombre }}
+                    <small>Creación habilitada para este mes.</small>
+                </a>
+            {% elif mes.es_mes_actual %}
+                <a class="btn-mes btn-mes-link btn-mes-actual-edicion" href="{% url 'dinamizador_ficha_programacion_mes' ficha.codigo_ficha mes.anio mes.mes %}">
+                    {{ mes.nombre }}
+                    <small>Mes actual: solo edición de programación existente.</small>
+                </a>
+            {% else %}
+                <div class="btn-mes btn-mes-bloqueado" title="{{ mes.mensaje_creacion }}">
+                    {{ mes.nombre }}
+                    <small>{{ mes.mensaje_creacion }}</small>
+                </div>
+            {% endif %}
+        {% empty %}
+            <p>No hay meses disponibles para el rango seleccionado.</p>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="meses-card" style="margin-top: 1rem;">
+    <h4>Programaciones registradas</h4>
+    <p>Desde aquí puedes abrir una programación existente para editar días, fechas y resultados.</p>
+
+    <div class="tabla-wrap">
+        <table class="tabla-fichas">
+            <thead>
+            <tr>
+                <th>No.</th>
+                <th>Competencia</th>
+                <th>Instructor</th>
+                <th>Ambiente</th>
+                <th>Fechas</th>
+                <th>Estado</th>
+                <th>Acción</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for item in programaciones %}
+                <tr>
+                    <td>{{ forloop.revcounter }}</td>
+                    <td>{{ item.id_competencia.nombre }}</td>
+                    <td>{{ item.id_instructor.nombre }} {{ item.id_instructor.apellido }}</td>
+                    <td>{% if item.id_ambiente %}{{ item.id_ambiente.ambiente }}{% else %}Sin ambiente{% endif %}</td>
+                    <td>{{ item.fecha_inicio }} a {{ item.fecha_fin }}</td>
+                    <td>{{ item.estado|title }}</td>
+                    <td>
+                        {% if item.permite_editar_ui %}
+                            <div class="acciones-fila-programacion">
+                                <a class="btn-link-action" href="{% url 'dinamizador_ficha_programacion_mes' ficha.codigo_ficha item.anio_operativo_ui item.mes_operativo_ui %}?editar={{ item.id_programacion }}">Editar</a>
+                                <form id="eliminarProgramacionForm{{ item.id_programacion }}" method="post" action="{% url 'dinamizador_eliminar_programacion' ficha.codigo_ficha item.id_programacion %}" class="acciones-inline-form acciones-inline-form-tight">
+                                    {% csrf_token %}
+                                    <button
+                                        type="button"
+                                        class="btn-link-danger js-eliminar-programacion-open"
+                                        data-form-id="eliminarProgramacionForm{{ item.id_programacion }}"
+                                        data-programacion-id="{{ item.id_programacion }}"
+                                        data-competencia="{{ item.id_competencia.nombre|escapejs }}"
+                                    >
+                                        Eliminar
+                                    </button>
+                                </form>
+                            </div>
+                        {% else %}
+                            <span class="texto-muted" title="{{ item.motivo_edicion_ui }}">Edición no disponible</span>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="7">No hay programaciones registradas para esta ficha.</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modalEliminarProgramacion" aria-hidden="true">
+    <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="tituloModalEliminarProgramacion">
+        <div class="modal-header">
+            <h3 id="tituloModalEliminarProgramacion">Confirmar eliminación</h3>
+            <button type="button" class="modal-close" id="btnCerrarModalEliminarProgramacion" aria-label="Cerrar">&times;</button>
+        </div>
+        <div class="modal-form">
+            <p id="textoModalEliminarProgramacion">¿Deseas eliminar esta programación? Esta acción no se puede deshacer.</p>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" id="btnCancelarModalEliminarProgramacion">Cancelar</button>
+                <button type="button" class="btn-link-danger" id="btnConfirmarModalEliminarProgramacion">Sí, eliminar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        const modal = document.getElementById('modalEliminarProgramacion');
+        const btnCerrar = document.getElementById('btnCerrarModalEliminarProgramacion');
+        const btnCancelar = document.getElementById('btnCancelarModalEliminarProgramacion');
+        const btnConfirmar = document.getElementById('btnConfirmarModalEliminarProgramacion');
+        const texto = document.getElementById('textoModalEliminarProgramacion');
+
+        if (!modal || !btnCerrar || !btnCancelar || !btnConfirmar || !texto) {
+            return;
+        }
+
+        let formObjetivo = null;
+
+        function abrirModal(formulario, programacionId, competencia) {
+            formObjetivo = formulario;
+            const detalleCompetencia = competencia ? ' de la competencia "' + competencia + '"' : '';
+            texto.textContent = '¿Deseas eliminar la programación #' + programacionId + detalleCompetencia + '? Esta acción no se puede deshacer.';
+            modal.classList.add('open');
+            modal.setAttribute('aria-hidden', 'false');
+        }
+
+        function cerrarModal() {
+            modal.classList.remove('open');
+            modal.setAttribute('aria-hidden', 'true');
+            formObjetivo = null;
+        }
+
+        document.addEventListener('click', function (event) {
+            const boton = event.target.closest('.js-eliminar-programacion-open');
+            if (!boton) {
+                return;
+            }
+            const formId = boton.getAttribute('data-form-id') || '';
+            const form = formId ? document.getElementById(formId) : null;
+            if (!form) {
+                return;
+            }
+            const programacionId = boton.getAttribute('data-programacion-id') || '';
+            const competencia = boton.getAttribute('data-competencia') || '';
+            abrirModal(form, programacionId, competencia);
+        });
+
+        btnCerrar.addEventListener('click', cerrarModal);
+        btnCancelar.addEventListener('click', cerrarModal);
+        modal.addEventListener('click', function (event) {
+            if (event.target === modal) {
+                cerrarModal();
+            }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape' && modal.classList.contains('open')) {
+                cerrarModal();
+            }
+        });
+
+        btnConfirmar.addEventListener('click', function () {
+            if (!formObjetivo) {
+                return;
+            }
+            formObjetivo.submit();
+        });
+    })();
+</script>
+{% endblock %}

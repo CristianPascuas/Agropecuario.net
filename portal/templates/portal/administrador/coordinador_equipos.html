@@ -1,0 +1,162 @@
+{% extends 'portal/base_portal.html' %}
+
+{% block portal_content %}
+<style>
+    .header-box {
+        border: 1px solid #dde6f1;
+        border-radius: 12px;
+        padding: 14px;
+        background: #f8fbff;
+        margin-bottom: 14px;
+    }
+    .header-box h3 {
+        margin: 0 0 6px;
+        color: #17324e;
+    }
+    .header-box p {
+        margin: 4px 0;
+        color: #4f647b;
+        font-size: 13px;
+    }
+    .acciones-top {
+        margin-top: 10px;
+    }
+    .btn-volver {
+        border: 1px solid #c8d6e5;
+        background: #fff;
+        color: #204466;
+        border-radius: 8px;
+        padding: 7px 10px;
+        font-size: 12px;
+        font-weight: 600;
+        text-decoration: none;
+    }
+    .equipo-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 10px;
+        margin-bottom: 14px;
+    }
+    .equipo-card {
+        border: 1px solid #dde6f1;
+        border-radius: 10px;
+        padding: 12px;
+        background: #ffffff;
+    }
+    .equipo-card h4 {
+        margin: 0 0 5px;
+        font-size: 15px;
+        color: #18324d;
+    }
+    .equipo-card p {
+        margin: 3px 0;
+        font-size: 12px;
+        color: #556c84;
+    }
+    .equipo-card a {
+        display: inline-block;
+        margin-top: 8px;
+        border: 1px solid #86b2ff;
+        border-radius: 8px;
+        background: #eaf2ff;
+        color: #0c4d9e;
+        text-decoration: none;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 6px 10px;
+    }
+    .equipo-card.active {
+        border-color: #82b1ff;
+        box-shadow: inset 0 0 0 1px #82b1ff;
+    }
+    .miembros-box {
+        border: 1px solid #dde6f1;
+        border-radius: 12px;
+        padding: 14px;
+        background: #ffffff;
+    }
+    .tabla-miembros-wrap {
+        margin-top: 10px;
+        max-height: 420px;
+        overflow: auto;
+        border: 1px solid #e4ebf4;
+        border-radius: 10px;
+    }
+    .tabla-miembros {
+        width: 100%;
+        min-width: 760px;
+        border-collapse: collapse;
+    }
+    .tabla-miembros th,
+    .tabla-miembros td {
+        border-bottom: 1px solid #edf2f7;
+        padding: 10px;
+        text-align: left;
+        font-size: 13px;
+    }
+    .tabla-miembros thead th {
+        position: sticky;
+        top: 0;
+        background: #f8fbff;
+    }
+</style>
+
+<div class="header-box">
+    <h3>{{ coordinador.nombre }}</h3>
+    <p><strong>Documento:</strong> {{ coordinador.documento }}</p>
+    <p><strong>Rol:</strong> {{ coordinador.rol }}</p>
+    <div class="acciones-top">
+        <a class="btn-volver" href="{% url 'administrador_equipos' %}">Volver a coordinadores</a>
+    </div>
+</div>
+
+<h4>Equipos bajo el mando de este coordinador</h4>
+<div class="equipo-grid">
+    {% for eq in equipos %}
+    <article class="equipo-card {% if equipo_activo_id == eq.id %}active{% endif %}">
+        <h4>{{ eq.nombre }}</h4>
+        <p><strong>Tipo:</strong> {{ eq.tipo }}</p>
+        <p><strong>Usuarios activos:</strong> {{ eq.total_usuarios }}</p>
+        <a href="{% url 'administrador_coordinador_equipos' coordinador.id %}?equipo={{ eq.id }}">Ver miembros</a>
+    </article>
+    {% endfor %}
+</div>
+
+{% if not equipos %}
+<p>Este coordinador aún no tiene equipos vinculados.</p>
+{% endif %}
+
+{% if equipo_activo %}
+<section class="miembros-box">
+    <h4>Coordinador: {{ coordinador.nombre }}</h4>
+    <p><strong>Equipo seleccionado:</strong> {{ equipo_activo.nombre }}</p>
+
+    {% if miembros_equipo %}
+    <div class="tabla-miembros-wrap">
+        <table class="tabla-miembros">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Documento</th>
+                    <th>Tipo</th>
+                    <th>Correo</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for miembro in miembros_equipo %}
+                <tr>
+                    <td>{{ miembro.nombre }}</td>
+                    <td>{{ miembro.documento }}</td>
+                    <td>{{ miembro.tipo_usuario }}</td>
+                    <td>{{ miembro.correo }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p>Este equipo no tiene instructores o dinamizadores activos.</p>
+    {% endif %}
+</section>
+{% endif %}
+{% endblock %}

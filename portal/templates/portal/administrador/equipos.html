@@ -1,0 +1,122 @@
+{% extends 'portal/base_portal.html' %}
+
+{% block portal_content %}
+<style>
+    .coord-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+    .coord-card {
+        border: 1px solid #dde6f1;
+        border-radius: 12px;
+        padding: 14px;
+        background: #f8fbff;
+    }
+    .coord-card h4 {
+        margin: 0 0 4px;
+        color: #17324e;
+        font-size: 16px;
+    }
+    .coord-card p {
+        margin: 4px 0;
+        color: #4f647b;
+        font-size: 13px;
+    }
+    .coord-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 10px;
+    }
+    .btn-card {
+        border: 1px solid #c8d6e5;
+        background: #fff;
+        color: #204466;
+        border-radius: 8px;
+        padding: 7px 10px;
+        font-size: 12px;
+        font-weight: 600;
+        text-decoration: none;
+        cursor: pointer;
+    }
+    .btn-card.primary {
+        border-color: #86b2ff;
+        background: #eaf2ff;
+        color: #0c4d9e;
+    }
+    .panel-sub {
+        border: 1px solid #dde6f1;
+        border-radius: 12px;
+        padding: 14px;
+        margin-top: 8px;
+        background: #ffffff;
+    }
+    .equipo-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 8px;
+    }
+    .equipo-tag {
+        border: 1px solid #d3deea;
+        border-radius: 999px;
+        padding: 7px 12px;
+        text-decoration: none;
+        color: #315574;
+        background: #f7faff;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    .equipo-tag.active {
+        border-color: #82b1ff;
+        background: #e9f2ff;
+        color: #104887;
+    }
+    .tabla-miembros-wrap {
+        margin-top: 12px;
+        max-height: 420px;
+        overflow: auto;
+        border: 1px solid #e4ebf4;
+        border-radius: 10px;
+    }
+    .tabla-miembros {
+        width: 100%;
+        min-width: 760px;
+        border-collapse: collapse;
+    }
+    .tabla-miembros th,
+    .tabla-miembros td {
+        border-bottom: 1px solid #edf2f7;
+        padding: 10px;
+        text-align: left;
+        font-size: 13px;
+    }
+    .tabla-miembros thead th {
+        position: sticky;
+        top: 0;
+        background: #f8fbff;
+    }
+</style>
+
+<h3>Ecosistemas de equipos por coordinador</h3>
+<p>Selecciona un coordinador y entra a su página de equipos.</p>
+
+{% if coordinadores %}
+<div class="coord-grid">
+    {% for coord in coordinadores %}
+    <article class="coord-card">
+        <h4>{{ coord.nombre }}</h4>
+        <p><strong>Documento:</strong> {{ coord.documento }}</p>
+        <p><strong>Rol:</strong> {{ coord.rol }}</p>
+        <div class="coord-actions">
+            <a class="btn-card" href="{% url 'administrador_usuarios' %}">Editar coordinador</a>
+            <a class="btn-card primary" href="{% url 'administrador_coordinador_equipos' coord.id %}">Ver equipos</a>
+        </div>
+    </article>
+    {% endfor %}
+</div>
+{% else %}
+<p>No hay coordinadores activos disponibles.</p>
+{% endif %}
+{% endblock %}

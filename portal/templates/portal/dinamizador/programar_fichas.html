@@ -1,0 +1,608 @@
+{% extends 'portal/base_portal.html' %}
+
+{% block portal_content %}
+<h3>Programar fichas</h3>
+<p>Crea fichas con datos reales de programa, horario, ambiente y municipio.</p>
+
+{% if messages %}
+	{% for message in messages %}
+		<div class="alert-success">{{ message }}</div>
+	{% endfor %}
+{% endif %}
+
+<div class="acciones-panel">
+	<button type="button" class="btn-primary" id="btnAbrirModal">Crear ficha</button>
+	<button type="button" class="btn-secondary" id="btnAbrirModalAmbiente">Crear ambiente</button>
+</div>
+
+<div id="accionesAlertas"></div>
+
+<form method="get" class="busqueda-form">
+	<input
+		type="text"
+		name="q"
+		value="{{ busqueda }}"
+		placeholder="Buscar por código de ficha"
+	>
+	<button type="submit" class="btn-secondary">Buscar</button>
+	{% if busqueda %}
+		<a href="{% url 'dinamizador_programar_fichas' %}" class="limpiar-link">Limpiar</a>
+	{% endif %}
+</form>
+
+<div class="tabla-wrap">
+	<table class="tabla-fichas">
+		<thead>
+		<tr>
+			<th>Código</th>
+			<th>Programa</th>
+			<th>Líder de ficha</th>
+			<th>Horario</th>
+			<th>Ambiente</th>
+			<th>Municipio</th>
+			<th>Fechas</th>
+			<th>Acción</th>
+		</tr>
+		</thead>
+		<tbody>
+		{% for ficha in fichas_recientes %}
+			<tr>
+				<td>{{ ficha.codigo_ficha }}</td>
+				<td>{{ ficha.id_programa_formacion.nombre }}</td>
+				<td>
+					{% if ficha.id_lider_ficha %}
+						{{ ficha.id_lider_ficha.nombre }} {{ ficha.id_lider_ficha.apellido }}
+					{% else %}
+						Sin asignar
+					{% endif %}
+				</td>
+				<td>{{ ficha.id_horario.horario|title }} ({{ ficha.id_horario.horas }}h)</td>
+				<td>{{ ficha.id_ambiente.ambiente }}</td>
+				<td>{{ ficha.codigo_municipio.municipio|title }}</td>
+				<td>{{ ficha.fecha_inicio }} a {{ ficha.fecha_fin }}</td>
+				<td>
+					<a class="btn-link-action" href="{% url 'dinamizador_ficha_programacion' ficha.codigo_ficha %}">Programación</a>
+					<button
+						type="button"
+						class="btn-secondary btn-editar-ficha"
+						style="margin-left:6px;"
+						data-codigo="{{ ficha.codigo_ficha }}"
+						data-programa="{{ ficha.id_programa_formacion_id }}"
+						data-lider="{% if ficha.id_lider_ficha %}{{ ficha.id_lider_ficha_id }}{% endif %}"
+						data-horario="{{ ficha.id_horario_id }}"
+						data-tipo="{{ ficha.tipo_ficha }}"
+						data-fecha-inicio="{{ ficha.fecha_inicio|date:'Y-m-d' }}"
+						data-fecha-fin="{{ ficha.fecha_fin|date:'Y-m-d' }}"
+						data-municipio="{{ ficha.codigo_municipio_id }}"
+						data-ambiente="{{ ficha.id_ambiente_id }}"
+					>
+						Editar ficha
+					</button>
+					<form method="post" action="{% url 'dinamizador_eliminar_ficha' ficha.codigo_ficha %}" style="display:inline-block; margin-left:6px;" onsubmit="return confirm('Esta acción eliminará la ficha y todas sus programaciones. ¿Deseas continuar?');">
+						{% csrf_token %}
+						<button type="submit" class="btn-secondary" style="background:#fdeaea; color:#8c1b1b;">Eliminar ficha</button>
+					</form>
+				</td>
+			</tr>
+		{% empty %}
+			<tr>
+				<td colspan="8">No hay fichas creadas en tu equipo.</td>
+			</tr>
+		{% endfor %}
+		</tbody>
+	</table>
+</div>
+
+<div class="modal-overlay" id="modalCrearFicha" aria-hidden="true">
+	<div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="tituloModalFicha">
+		<div class="modal-header">
+			<h3 id="tituloModalFicha">Crear ficha</h3>
+			<button type="button" class="modal-close" id="btnCerrarModal" aria-label="Cerrar">&times;</button>
+		</div>
+
+		<form method="post" class="modal-form">
+			{% csrf_token %}
+			<input type="hidden" name="modo_form" id="modoFormInput" value="{{ modo_form_activo|default:'crear' }}">
+			<input type="hidden" name="codigo_ficha_original" id="codigoFichaOriginalInput" value="{{ form.data.codigo_ficha_original|default:'' }}">
+
+			{% if form.non_field_errors %}
+				<div class="form-error">{{ form.non_field_errors }}</div>
+			{% endif %}
+
+			<div class="form-grid">
+				<div class="field-group">
+					<label for="id_codigo_ficha">Código único</label>
+					{{ form.codigo_ficha }}
+					{% if form.codigo_ficha.errors %}<div class="form-error">{{ form.codigo_ficha.errors }}</div>{% endif %}
+				</div>
+
+				<div class="field-group">
+					<label for="id_id_programa_formacion">Programa</label>
+					{{ form.id_programa_formacion }}
+					{% if form.id_programa_formacion.errors %}<div class="form-error">{{ form.id_programa_formacion.errors }}</div>{% endif %}
+				</div>
+
+				<div class="field-group">
+					<label for="id_codigo_municipio">Municipio de formación</label>
+					{{ form.codigo_municipio }}
+					{% if form.codigo_municipio.errors %}<div class="form-error">{{ form.codigo_municipio.errors }}</div>{% endif %}
+				</div>
+
+				<div class="field-group">
+					<label for="id_id_ambiente">Ambiente de formación</label>
+					{{ form.id_ambiente }}
+					{% if form.id_ambiente.errors %}<div class="form-error">{{ form.id_ambiente.errors }}</div>{% endif %}
+				</div>
+
+				<div class="field-group">
+					<label for="id_fecha_inicio">Fecha de inicio</label>
+					{{ form.fecha_inicio }}
+					{% if form.fecha_inicio.errors %}<div class="form-error">{{ form.fecha_inicio.errors }}</div>{% endif %}
+				</div>
+
+				<div class="field-group">
+					<label for="id_fecha_fin">Fecha de fin (De la etapa lectiva)</label>
+					{{ form.fecha_fin }}
+					{% if form.fecha_fin.errors %}<div class="form-error">{{ form.fecha_fin.errors }}</div>{% endif %}
+				</div>
+
+				<div class="field-group">
+					<label for="id_id_horario">Horario</label>
+					{{ form.id_horario }}
+					{% if form.id_horario.errors %}<div class="form-error">{{ form.id_horario.errors }}</div>{% endif %}
+				</div>
+
+				<div class="field-group">
+					<label for="id_id_lider_ficha">Líder de ficha</label>
+					{{ form.id_lider_ficha }}
+					{% if form.id_lider_ficha.errors %}<div class="form-error">{{ form.id_lider_ficha.errors }}</div>{% endif %}
+				</div>
+
+				<div class="field-group">
+					<label for="id_tipo_ficha">Tipo de ficha</label>
+					{{ form.tipo_ficha }}
+					{% if form.tipo_ficha.errors %}<div class="form-error">{{ form.tipo_ficha.errors }}</div>{% endif %}
+				</div>
+			</div>
+
+			<div class="modal-footer">
+				<button type="button" class="btn-secondary" id="btnCancelarModal">Cancelar</button>
+				<button type="submit" class="btn-primary" id="btnSubmitModal">Guardar ficha</button>
+			</div>
+		</form>
+	</div>
+</div>
+
+<div class="modal-overlay" id="modalCrearAmbiente" aria-hidden="true">
+	<div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="tituloModalAmbiente">
+		<div class="modal-header">
+			<h3 id="tituloModalAmbiente">Crear ambiente</h3>
+			<button type="button" class="modal-close" id="btnCerrarModalAmbiente" aria-label="Cerrar">&times;</button>
+		</div>
+
+		<form class="modal-form" id="formCrearAmbiente">
+			<div class="form-grid">
+				<div class="field-group">
+					<label for="ambienteMunicipio">Municipio</label>
+					<select id="ambienteMunicipio" required>
+						<option value="">Seleccionar...</option>
+						{% for municipio in municipios_catalogo %}
+							<option value="{{ municipio.codigo_municipio }}">{{ municipio.municipio|title }}</option>
+						{% endfor %}
+					</select>
+				</div>
+
+				<div class="field-group">
+					<label for="ambienteNombre">Nombre del ambiente</label>
+					<input type="text" id="ambienteNombre" maxlength="120" required>
+				</div>
+
+				<div class="field-group">
+					<label for="ambienteLugar">Lugar</label>
+					<input type="text" id="ambienteLugar" maxlength="100" required>
+				</div>
+			</div>
+
+			<div id="crearAmbienteEstado" class="form-error" style="display:none;"></div>
+
+			<div class="modal-footer">
+				<button type="button" class="btn-secondary" id="btnCancelarModalAmbiente">Cancelar</button>
+				<button type="submit" class="btn-primary" id="btnGuardarAmbiente">Guardar ambiente</button>
+			</div>
+		</form>
+	</div>
+</div>
+
+<script>
+	document.addEventListener('DOMContentLoaded', function () {
+		const ambientesCatalogoNode = document.getElementById('ambientes-catalogo');
+		const ambientesCatalogo = ambientesCatalogoNode ? JSON.parse(ambientesCatalogoNode.textContent) : [];
+		const modal = document.getElementById('modalCrearFicha');
+		const abrir = document.getElementById('btnAbrirModal');
+		const cerrar = document.getElementById('btnCerrarModal');
+		const cancelar = document.getElementById('btnCancelarModal');
+		const modalAmbiente = document.getElementById('modalCrearAmbiente');
+		const abrirModalAmbiente = document.getElementById('btnAbrirModalAmbiente');
+		const cerrarModalAmbiente = document.getElementById('btnCerrarModalAmbiente');
+		const cancelarModalAmbiente = document.getElementById('btnCancelarModalAmbiente');
+		const formCrearAmbiente = document.getElementById('formCrearAmbiente');
+		const ambienteMunicipio = document.getElementById('ambienteMunicipio');
+		const ambienteNombre = document.getElementById('ambienteNombre');
+		const ambienteLugar = document.getElementById('ambienteLugar');
+		const crearAmbienteEstado = document.getElementById('crearAmbienteEstado');
+		const btnGuardarAmbiente = document.getElementById('btnGuardarAmbiente');
+		const urlCrearAmbiente = "{% url 'api_dinamizador_crear_ambiente' %}";
+		const editarBotones = Array.from(document.querySelectorAll('.btn-editar-ficha'));
+		const tituloModal = document.getElementById('tituloModalFicha');
+		const btnSubmitModal = document.getElementById('btnSubmitModal');
+		const modoFormInput = document.getElementById('modoFormInput');
+		const codigoFichaOriginalInput = document.getElementById('codigoFichaOriginalInput');
+		const tieneErrores = modal ? modal.querySelector('.form-error') : null;
+		const municipioSelect = document.getElementById('id_codigo_municipio');
+		const ambienteSelect = document.getElementById('id_id_ambiente');
+		const codigoFichaInput = document.getElementById('id_codigo_ficha');
+		const programaInput = document.getElementById('id_id_programa_formacion');
+		const liderInput = document.getElementById('id_id_lider_ficha');
+		const horarioInput = document.getElementById('id_id_horario');
+		const tipoInput = document.getElementById('id_tipo_ficha');
+		const fechaInicioInput = document.getElementById('id_fecha_inicio');
+		const fechaFinInput = document.getElementById('id_fecha_fin');
+		const accionesAlertas = document.getElementById('accionesAlertas');
+
+		if (!modal) {
+			return;
+		}
+
+		function getCookie(name) {
+			const value = '; ' + document.cookie;
+			const parts = value.split('; ' + name + '=');
+			if (parts.length === 2) {
+				return parts.pop().split(';').shift();
+			}
+			return '';
+		}
+
+		function openModal() {
+			modal.classList.add('open');
+			modal.setAttribute('aria-hidden', 'false');
+		}
+
+		function closeModal() {
+			modal.classList.remove('open');
+			modal.setAttribute('aria-hidden', 'true');
+		}
+
+		function openModalAmbiente() {
+			if (!modalAmbiente) {
+				return;
+			}
+			if (ambienteMunicipio && municipioSelect && municipioSelect.value) {
+				ambienteMunicipio.value = municipioSelect.value;
+			}
+			if (ambienteNombre) {
+				ambienteNombre.value = '';
+			}
+			if (ambienteLugar) {
+				ambienteLugar.value = '';
+			}
+			if (crearAmbienteEstado) {
+				crearAmbienteEstado.style.display = 'none';
+				crearAmbienteEstado.textContent = '';
+			}
+			modalAmbiente.classList.add('open');
+			modalAmbiente.setAttribute('aria-hidden', 'false');
+		}
+
+		function closeModalAmbiente() {
+			if (!modalAmbiente) {
+				return;
+			}
+			modalAmbiente.classList.remove('open');
+			modalAmbiente.setAttribute('aria-hidden', 'true');
+		}
+
+		function setCrearAmbienteEstado(mensaje) {
+			if (!crearAmbienteEstado) {
+				return;
+			}
+			if (!mensaje) {
+				crearAmbienteEstado.style.display = 'none';
+				crearAmbienteEstado.textContent = '';
+				return;
+			}
+			crearAmbienteEstado.textContent = mensaje;
+			crearAmbienteEstado.style.display = 'block';
+		}
+
+		function mostrarAlertaAccion(mensaje, tipo) {
+			if (!accionesAlertas || !mensaje) {
+				return;
+			}
+			const clase = tipo === 'error' ? 'form-error' : 'alert-success';
+			accionesAlertas.innerHTML = '<div class="' + clase + '">' + mensaje + '</div>';
+		}
+
+		function setModoCrear() {
+			if (tituloModal) {
+				tituloModal.textContent = 'Crear ficha';
+			}
+			if (btnSubmitModal) {
+				btnSubmitModal.textContent = 'Guardar ficha';
+			}
+			if (modoFormInput) {
+				modoFormInput.value = 'crear';
+			}
+			if (codigoFichaOriginalInput) {
+				codigoFichaOriginalInput.value = '';
+			}
+			if (codigoFichaInput) {
+				codigoFichaInput.readOnly = false;
+			}
+		}
+
+		function setModoEditar(data) {
+			if (!data) {
+				return;
+			}
+			if (tituloModal) {
+				tituloModal.textContent = 'Editar ficha';
+			}
+			if (btnSubmitModal) {
+				btnSubmitModal.textContent = 'Actualizar ficha';
+			}
+			if (modoFormInput) {
+				modoFormInput.value = 'editar';
+			}
+			if (codigoFichaOriginalInput) {
+				codigoFichaOriginalInput.value = data.codigo || '';
+			}
+
+			if (codigoFichaInput) {
+				codigoFichaInput.value = data.codigo || '';
+				codigoFichaInput.readOnly = true;
+			}
+			if (programaInput) {
+				programaInput.value = data.programa || '';
+			}
+			if (liderInput) {
+				liderInput.value = data.lider || '';
+			}
+			if (horarioInput) {
+				horarioInput.value = data.horario || '';
+			}
+			if (tipoInput) {
+				tipoInput.value = data.tipo || '';
+			}
+			if (fechaInicioInput) {
+				fechaInicioInput.value = data.fechaInicio || '';
+			}
+			if (fechaFinInput) {
+				fechaFinInput.value = data.fechaFin || '';
+			}
+
+			if (municipioSelect) {
+				municipioSelect.value = data.municipio || '';
+				renderAmbientesPorMunicipio();
+			}
+			if (ambienteSelect) {
+				ambienteSelect.value = data.ambiente || '';
+			}
+		}
+
+		function renderAmbientesPorMunicipio() {
+			if (!municipioSelect || !ambienteSelect) {
+				return;
+			}
+
+			const municipioId = Number(municipioSelect.value || 0);
+			const seleccionadoActual = ambienteSelect.value;
+			const filtrados = municipioId
+				? ambientesCatalogo.filter(function (item) {
+					return Number(item.codigo_municipio_id) === municipioId;
+				})
+				: ambientesCatalogo.slice();
+
+			const municipiosMap = {};
+			Array.from(municipioSelect.options || []).forEach(function (opt) {
+				const key = String(opt.value || '').trim();
+				if (!key) {
+					return;
+				}
+				municipiosMap[key] = String(opt.textContent || '').trim();
+			});
+
+			let html = '<option value="">Seleccionar...</option>';
+			filtrados.forEach(function (item) {
+				const nombreMunicipio = municipiosMap[String(item.codigo_municipio_id)] || '';
+				const etiqueta = nombreMunicipio ? (item.ambiente + ' (' + nombreMunicipio + ')') : item.ambiente;
+				html += '<option value="' + item.id_ambiente + '">' + etiqueta + '</option>';
+			});
+			ambienteSelect.innerHTML = html;
+
+			if (seleccionadoActual && filtrados.some(function (item) { return String(item.id_ambiente) === String(seleccionadoActual); })) {
+				ambienteSelect.value = seleccionadoActual;
+			}
+		}
+
+		if (abrir) {
+			abrir.addEventListener('click', function () {
+				setModoCrear();
+				openModal();
+			});
+		}
+
+		editarBotones.forEach(function (btn) {
+			btn.addEventListener('click', function () {
+				setModoEditar({
+					codigo: btn.getAttribute('data-codigo'),
+					programa: btn.getAttribute('data-programa'),
+					lider: btn.getAttribute('data-lider'),
+					horario: btn.getAttribute('data-horario'),
+					tipo: btn.getAttribute('data-tipo'),
+					fechaInicio: btn.getAttribute('data-fecha-inicio'),
+					fechaFin: btn.getAttribute('data-fecha-fin'),
+					municipio: btn.getAttribute('data-municipio'),
+					ambiente: btn.getAttribute('data-ambiente'),
+				});
+				openModal();
+			});
+		});
+
+		if (cerrar) {
+			cerrar.addEventListener('click', closeModal);
+		}
+
+		if (cancelar) {
+			cancelar.addEventListener('click', closeModal);
+		}
+
+		if (abrirModalAmbiente) {
+			abrirModalAmbiente.addEventListener('click', function () {
+				openModalAmbiente();
+			});
+		}
+
+		if (cerrarModalAmbiente) {
+			cerrarModalAmbiente.addEventListener('click', closeModalAmbiente);
+		}
+
+		if (cancelarModalAmbiente) {
+			cancelarModalAmbiente.addEventListener('click', closeModalAmbiente);
+		}
+
+		modal.addEventListener('click', function (event) {
+			if (event.target === modal) {
+				closeModal();
+			}
+		});
+
+		if (modalAmbiente) {
+			modalAmbiente.addEventListener('click', function (event) {
+				if (event.target === modalAmbiente) {
+					closeModalAmbiente();
+				}
+			});
+		}
+
+		document.addEventListener('keydown', function (event) {
+			if (event.key !== 'Escape') {
+				return;
+			}
+			if (modalAmbiente && modalAmbiente.classList.contains('open')) {
+				closeModalAmbiente();
+				return;
+			}
+			if (modal.classList.contains('open')) {
+				closeModal();
+			}
+		});
+
+		if (tieneErrores) {
+			if (modoFormInput && modoFormInput.value === 'editar') {
+				if (tituloModal) {
+					tituloModal.textContent = 'Editar ficha';
+				}
+				if (btnSubmitModal) {
+					btnSubmitModal.textContent = 'Actualizar ficha';
+				}
+				if (codigoFichaInput) {
+					codigoFichaInput.readOnly = true;
+				}
+			}
+			openModal();
+		}
+
+		if (municipioSelect && ambienteSelect) {
+			renderAmbientesPorMunicipio();
+			municipioSelect.addEventListener('change', function () {
+				renderAmbientesPorMunicipio();
+				if (ambienteMunicipio) {
+					ambienteMunicipio.value = municipioSelect.value || '';
+				}
+			});
+		}
+
+		if (formCrearAmbiente) {
+			formCrearAmbiente.addEventListener('submit', function (event) {
+				event.preventDefault();
+				setCrearAmbienteEstado('');
+
+				const municipioId = ambienteMunicipio ? String(ambienteMunicipio.value || '').trim() : '';
+				const nombre = ambienteNombre ? String(ambienteNombre.value || '').trim() : '';
+				const lugar = ambienteLugar ? String(ambienteLugar.value || '').trim() : '';
+
+				if (!municipioId || !nombre || !lugar) {
+					setCrearAmbienteEstado('Debes completar municipio, nombre y lugar del ambiente.');
+					return;
+				}
+
+				if (btnGuardarAmbiente) {
+					btnGuardarAmbiente.disabled = true;
+				}
+
+				fetch(urlCrearAmbiente, {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRFToken': getCookie('csrftoken'),
+					},
+					body: JSON.stringify({
+						codigo_municipio: Number(municipioId),
+						ambiente: nombre,
+						lugar: lugar,
+					}),
+				})
+					.then(function (response) {
+						return response.text().then(function (text) {
+							if (!response.ok) {
+								throw new Error(text || ('Error HTTP ' + response.status));
+							}
+							return text ? JSON.parse(text) : {};
+						});
+					})
+					.then(function (data) {
+						const creado = data && data.ambiente ? data.ambiente : null;
+						if (!creado || !creado.id_ambiente) {
+							throw new Error('No se recibió el ambiente creado.');
+						}
+
+						const existenteIdx = ambientesCatalogo.findIndex(function (item) {
+							return String(item.id_ambiente) === String(creado.id_ambiente);
+						});
+						if (existenteIdx >= 0) {
+							ambientesCatalogo[existenteIdx] = creado;
+						} else {
+							ambientesCatalogo.push(creado);
+						}
+
+						if (municipioSelect) {
+							municipioSelect.value = String(creado.codigo_municipio_id || '');
+						}
+						renderAmbientesPorMunicipio();
+						if (ambienteSelect) {
+							ambienteSelect.value = String(creado.id_ambiente);
+						}
+
+						if (data && data.creado) {
+							mostrarAlertaAccion('Ambiente creado correctamente: ' + creado.ambiente + '.', 'success');
+						} else {
+							mostrarAlertaAccion('El ambiente ya existía y fue seleccionado: ' + creado.ambiente + '.', 'success');
+						}
+
+						closeModalAmbiente();
+					})
+					.catch(function (error) {
+						setCrearAmbienteEstado('No se pudo guardar el ambiente: ' + error.message);
+						mostrarAlertaAccion('No se pudo crear el ambiente: ' + error.message, 'error');
+					})
+					.finally(function () {
+						if (btnGuardarAmbiente) {
+							btnGuardarAmbiente.disabled = false;
+						}
+					});
+			});
+		}
+	});
+</script>
+{{ ambientes_catalogo|json_script:'ambientes-catalogo' }}
+{% endblock %}

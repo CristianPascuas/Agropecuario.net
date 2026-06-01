@@ -1,0 +1,271 @@
+{% extends 'portal/base_portal.html' %}
+
+{% block portal_content %}
+<h3>Consultar programaciones</h3>
+<p>Consulta fichas programadas y el calendario del mes actual con asignaciones por horario y resultados.</p>
+
+<style>
+	.btn-ver-resultados {
+		margin-top: 6px;
+		padding: 5px 10px;
+		font-size: 12px;
+		border-radius: 999px;
+		border: 1px solid #b9d7c4;
+		background: #f3fbf6;
+		color: #1f6a44;
+	}
+
+	.btn-ver-resultados:hover {
+		background: #e6f5ec;
+	}
+
+	.resultados-lista {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+		display: grid;
+		gap: 8px;
+	}
+
+	.resultados-lista li {
+		padding: 9px 10px;
+		border: 1px solid #dfe5e0;
+		border-radius: 8px;
+		background: #f9fcfa;
+		font-size: 13px;
+	}
+</style>
+
+<form method="get" class="busqueda-form">
+	<input
+		type="text"
+		name="q"
+		value="{{ busqueda }}"
+		placeholder="Buscar por código de ficha"
+	>
+	<button type="submit" class="btn-secondary">Buscar</button>
+	{% if busqueda %}
+		<a href="{% url 'instructor_programaciones' %}" class="limpiar-link">Limpiar</a>
+	{% endif %}
+</form>
+
+<div class="tabla-wrap" style="margin-bottom: 12px;">
+	<table class="tabla-fichas">
+		<thead>
+		<tr>
+			<th>Código ficha</th>
+			<th>Programa</th>
+			<th>Horario</th>
+			<th>Ambiente</th>
+			<th>Municipio</th>
+			<th>Fechas</th>
+			<th>Acciones</th>
+		</tr>
+		</thead>
+		<tbody>
+		{% for ficha in fichas_programadas %}
+			<tr>
+				<td>{{ ficha.codigo_ficha }}</td>
+				<td>{{ ficha.id_programa_formacion.nombre }}</td>
+				<td>{{ ficha.id_horario.horario|default:'Sin horario' }}</td>
+				<td>{{ ficha.id_ambiente.ambiente }}</td>
+				<td>{{ ficha.codigo_municipio.municipio|title }}</td>
+				<td>{{ ficha.fecha_inicio }} a {{ ficha.fecha_fin }}</td>
+				<td><a href="{% url 'ficha_programaciones_detalle' ficha.codigo_ficha %}" class="btn-secondary">Detalles</a></td>
+			</tr>
+		{% empty %}
+			<tr>
+				<td colspan="7">No hay fichas programadas para tu usuario con ese filtro.</td>
+			</tr>
+		{% endfor %}
+		</tbody>
+	</table>
+</div>
+
+<div class="meses-card">
+	<h4>Calendario de asignaciones del mes actual</h4>
+	<form method="get" class="busqueda-form" style="margin-bottom: 10px;">
+		<input type="hidden" name="q" value="{{ busqueda }}">
+		<select name="mes" class="select-proyecto">
+			{% for numero_mes, nombre_mes in meses_disponibles %}
+				<option value="{{ numero_mes }}" {% if numero_mes == mes_seleccionado %}selected{% endif %}>{{ nombre_mes }}</option>
+			{% endfor %}
+		</select>
+		<select name="anio" class="select-proyecto">
+			{% for anio_opcion in anios_disponibles %}
+				<option value="{{ anio_opcion }}" {% if anio_opcion == anio_seleccionado %}selected{% endif %}>{{ anio_opcion }}</option>
+			{% endfor %}
+		</select>
+		<button type="submit" class="btn-secondary">Ver calendario</button>
+	</form>
+
+	<div class="resumen-grid" style="margin-bottom: 10px;">
+		<div class="resumen-card resumen-card-metric">
+			<span class="resumen-label">Mes actual</span>
+			<strong>{{ mes_actual.nombre }} {{ mes_actual.anio }}</strong>
+		</div>
+		<div class="resumen-card resumen-card-metric">
+			<span class="resumen-label">Asignaciones en el mes</span>
+			<strong>{{ total_asignaciones_mes }}</strong>
+		</div>
+	</div>
+
+	<div class="tabla-wrap">
+		<table class="tabla-calendario" style="table-layout: fixed;">
+			<thead>
+			<tr>
+				<th>Lun</th>
+				<th>Mar</th>
+				<th>Mié</th>
+				<th>Jue</th>
+				<th>Vie</th>
+				<th>Sab</th>
+				<th>Dom</th>
+			</tr>
+			</thead>
+			<tbody>
+			{% for semana in mes_actual.semanas %}
+				<tr>
+					{% for celda in semana %}
+						<td class="{% if celda.in_month %}{% if celda.tiene_asignaciones %}dia-activo{% else %}dia-sin-asignacion{% endif %}{% else %}dia-fuera-rango{% endif %}" style="height:auto; vertical-align: top; text-align:left;">
+							{% if celda.in_month %}
+								<div style="font-weight:700; margin-bottom:6px;">{{ celda.day }}</div>
+								{% for slot in celda.slots %}
+									<div style="border-top:1px solid #dfe5e0; padding-top:4px; margin-top:4px;">
+										<div style="font-size:12px; color:#264735;"><strong>{{ slot.label }}</strong> {{ slot.rango }}</div>
+										{% if slot.items %}
+											{% for item in slot.items %}
+												<div style="font-size:12px; margin-top:3px; background:#eef6f0; border-radius:6px; padding:5px;">
+													<div><strong>{{ item.etiqueta }}</strong> · {{ item.horario }}</div>
+													{% if item.resultados %}
+														<button
+															type="button"
+															class="btn-secondary btn-ver-resultados"
+															data-resultados='{{ item.resultados|join:"|||"|escapejs }}'
+														>
+															{% if item.es_radicado %}
+																Ver informacion de actividad adicional
+															{% else %}
+																Ver resultados ({{ item.resultados|length }})
+															{% endif %}
+														</button>
+													{% else %}
+														<div style="font-size:12px; color:#5f6a63; margin-top:4px;">Sin resultados</div>
+													{% endif %}
+												</div>
+											{% endfor %}
+										{% else %}
+											<div style="font-size:12px; color:#5f6a63; margin-top:3px;">Sin asignación</div>
+										{% endif %}
+									</div>
+								{% endfor %}
+							{% endif %}
+						</td>
+					{% endfor %}
+				</tr>
+			{% endfor %}
+			</tbody>
+		</table>
+	</div>
+</div>
+
+<div class="modal-overlay" id="modalResultados" aria-hidden="true">
+	<div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="tituloModalResultados">
+		<div class="modal-header">
+			<h3 id="tituloModalResultados">Información del día</h3>
+			<button type="button" class="modal-close" id="btnCerrarModalResultados" aria-label="Cerrar">&times;</button>
+		</div>
+		<div class="modal-form">
+			<ul id="listaResultadosModal" class="resultados-lista"></ul>
+		</div>
+	</div>
+</div>
+
+<script>
+	(function () {
+		const modal = document.getElementById('modalResultados');
+		const cerrar = document.getElementById('btnCerrarModalResultados');
+		const lista = document.getElementById('listaResultadosModal');
+
+		if (!modal || !cerrar || !lista) {
+			return;
+		}
+
+		function abrirModal(resultados) {
+			lista.innerHTML = '';
+			if (!resultados.length) {
+				const li = document.createElement('li');
+				li.textContent = 'Sin resultados';
+				lista.appendChild(li);
+			}
+			resultados.forEach(function (item) {
+				const li = document.createElement('li');
+				li.textContent = item;
+				lista.appendChild(li);
+			});
+			modal.classList.add('open');
+			modal.setAttribute('aria-hidden', 'false');
+		}
+
+		function cerrarModal() {
+			modal.classList.remove('open');
+			modal.setAttribute('aria-hidden', 'true');
+		}
+
+		function parseResultados(raw) {
+			if (!raw) {
+				return [];
+			}
+
+			function decodificarUnicodeEscapado(valor) {
+				return valor.replace(/\\u([0-9a-fA-F]{4})/g, function (_, hex) {
+					return String.fromCharCode(parseInt(hex, 16));
+				});
+			}
+
+			let normalizado = raw;
+			try {
+				normalizado = JSON.parse('"' + raw.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"');
+			} catch (e) {
+				normalizado = raw;
+			}
+
+			normalizado = decodificarUnicodeEscapado(normalizado);
+
+			normalizado = normalizado
+				.replace(/\\u000D\\u000A|\\u000A|\\u000D/g, ' ')
+				.replace(/\r\n?|\n/g, ' ');
+
+			return normalizado
+				.split('|||')
+				.map(function (item) {
+					return item.replace(/\s+/g, ' ').trim();
+				})
+				.filter(Boolean);
+		}
+
+		document.addEventListener('click', function (event) {
+			const boton = event.target.closest('.btn-ver-resultados');
+			if (!boton) {
+				return;
+			}
+			const raw = boton.getAttribute('data-resultados') || '';
+			const resultados = parseResultados(raw);
+			abrirModal(resultados);
+		});
+
+		cerrar.addEventListener('click', cerrarModal);
+		modal.addEventListener('click', function (event) {
+			if (event.target === modal) {
+				cerrarModal();
+			}
+		});
+
+		document.addEventListener('keydown', function (event) {
+			if (event.key === 'Escape' && modal.classList.contains('open')) {
+				cerrarModal();
+			}
+		});
+	})();
+</script>
+{% endblock %}

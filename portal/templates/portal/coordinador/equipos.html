@@ -1,0 +1,148 @@
+{% extends 'portal/base_portal.html' %}
+
+{% block portal_content %}
+<h3>Equipos de ejecución</h3>
+
+<h4 style="margin-top:1.5rem;">Instructores de mi equipo</h4>
+{% if instructores %}
+<div style="overflow-x:auto; max-width:100%;">
+<table class="tabla-radicados" style="min-width:500px;">
+  <thead>
+    <tr>
+      <th>Nombre</th>
+      <th>Documento</th>
+      <th>Equipo</th>
+      <th>Acción</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for inst in instructores %}
+    <tr id="inst-row-{{ inst.id }}">
+      <td>{{ inst.nombre }}</td>
+      <td>{{ inst.documento }}</td>
+      <td>{{ inst.equipo }}</td>
+      <td>
+        <button type="button" class="btn-promover-instructor" data-id="{{ inst.id }}" style="padding:4px 12px; cursor:pointer;">
+          Promover a Dinamizador
+        </button>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<p>No hay instructores en su equipo.</p>
+{% endif %}
+
+<h4 style="margin-top:1.5rem;">Gestión de tipo de dinamizador</h4>
+{% if dinamizadores %}
+<div style="overflow-x:auto; max-width:100%;">
+<table class="tabla-radicados" style="min-width:600px;">
+  <thead>
+    <tr>
+      <th>Nombre</th>
+      <th>Documento</th>
+      <th>Equipo</th>
+      <th>Tipo actual</th>
+      <th>Cambiar a</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for din in dinamizadores %}
+    <tr id="din-row-{{ din.id }}">
+      <td>{{ din.nombre }}</td>
+      <td>{{ din.documento }}</td>
+      <td>{{ din.equipo }}</td>
+      <td class="din-tipo-display">{{ din.tipo_display }}</td>
+      <td>
+        <button
+          type="button"
+          class="btn-cambiar-tipo"
+          data-id="{{ din.id }}"
+          data-tipo-actual="{{ din.tipo_dinamizador }}"
+          style="padding:4px 12px; cursor:pointer;"
+        >
+          {% if din.tipo_dinamizador == 'coordinador' %}
+            Cambiar a Instructor
+          {% else %}
+            Cambiar a Coordinador
+          {% endif %}
+        </button>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<p>No hay dinamizadores registrados.</p>
+{% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var csrfToken = '{{ csrf_token }}';
+
+  // Cambiar tipo dinamizador
+  document.querySelectorAll('.btn-cambiar-tipo').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var id = this.dataset.id;
+      var tipoActual = this.dataset.tipoActual;
+      var nuevoTipo = tipoActual === 'coordinador' ? 'instructor' : 'coordinador';
+      var displayNuevo = nuevoTipo === 'coordinador' ? 'Coordinador' : 'Instructor';
+
+      if (!confirm('¿Cambiar este dinamizador a ' + displayNuevo + '?')) return;
+
+      var fd = new FormData();
+      fd.append('tipo_dinamizador', nuevoTipo);
+
+      fetch('/portal/api/coordinador/dinamizador/' + id + '/tipo/', {
+        method: 'POST',
+        headers: {'X-CSRFToken': csrfToken},
+        body: fd,
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.ok) {
+          var row = document.getElementById('din-row-' + id);
+          row.querySelector('.din-tipo-display').textContent = data.tipo_display;
+          btn.dataset.tipoActual = data.tipo_dinamizador;
+          btn.textContent = data.tipo_dinamizador === 'coordinador'
+            ? 'Cambiar a Instructor'
+            : 'Cambiar a Coordinador';
+        } else {
+          alert('Error al cambiar tipo.');
+        }
+      })
+      .catch(function() { alert('Error de conexión.'); });
+    });
+  });
+
+  // Promover instructor a dinamizador
+  document.querySelectorAll('.btn-promover-instructor').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var id = this.dataset.id;
+      if (!confirm('¿Promover este instructor a Dinamizador-Instructor?')) return;
+
+      fetch('/portal/api/coordinador/instructor/' + id + '/promover/', {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': csrfToken,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.ok) {
+          alert('Instructor ' + data.nombre + ' promovido a dinamizador.');
+          location.reload();
+        } else {
+          alert('Error al promover instructor.');
+        }
+      })
+      .catch(function() { alert('Error de conexión.'); });
+    });
+  });
+});
+</script>
+{% endblock %}

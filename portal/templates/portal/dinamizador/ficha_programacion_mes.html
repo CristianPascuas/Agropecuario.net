@@ -1,0 +1,1688 @@
+{% extends 'portal/base_portal.html' %}
+
+{% block portal_content %}
+<h3>Programación mensual - Ficha {{ ficha.codigo_ficha }}</h3>
+
+<div class="meses-card" id="modoEdicionBox" style="display:none; margin-bottom: 1rem;">
+    <h4>Modo edición de programación</h4>
+    <p>
+        Editando programación <strong id="modoEdicionId"></strong>.
+        Competencia: <strong id="modoEdicionCompetencia"></strong>.
+        Instructor: <strong id="modoEdicionInstructor"></strong>.
+    </p>
+    <small>En este modo puedes ajustar días, fechas y resultados de la programación seleccionada.</small>
+</div>
+
+<div class="mes-nav-card">
+    <a class="btn-secondary btn-inline {% if not prev_mes %}btn-disabled{% endif %}" {% if prev_mes %}href="{% url 'dinamizador_ficha_programacion_mes' ficha.codigo_ficha prev_mes.anio prev_mes.mes %}"{% endif %}>Mes anterior</a>
+    <strong>{{ nombre_mes }} {{ anio }}</strong>
+    <a class="btn-secondary btn-inline {% if not next_mes %}btn-disabled{% endif %}" {% if next_mes %}href="{% url 'dinamizador_ficha_programacion_mes' ficha.codigo_ficha next_mes.anio next_mes.mes %}"{% endif %}>Mes siguiente</a>
+</div>
+
+<div class="alert-programacion info politica-programacion-mes">
+    {% if politica_mes.es_mes_actual %}
+        Mes actual: solo puedes editar programación ya asignada. La creación de nueva programación está bloqueada.
+    {% elif politica_mes.es_mes_pasado %}
+        Mes pasado: no se permite crear ni editar programación.
+    {% elif politica_mes.permite_crear %}
+        Mes futuro habilitado para creación. Nota: la edición solo está disponible para el mes actual.
+    {% else %}
+        {{ politica_mes.mensaje_creacion }}
+    {% endif %}
+</div>
+
+<div class="resumen-grid">
+    <div class="resumen-card">
+        <span class="resumen-label">Mes en edición</span>
+        <strong>{{ nombre_mes }} {{ anio }}</strong>
+        <small>Horario {{ ficha.id_horario.horario|default:'Sin horario'|title }}</small>
+    </div>
+    <div class="resumen-card">
+        <span class="resumen-label">Programa</span>
+        <strong>{{ ficha.id_programa_formacion.nombre }}</strong>
+        <small>Código {{ ficha.id_programa_formacion.codigo }}</small>
+    </div>
+    <div class="resumen-card">
+        <span class="resumen-label">Ambiente / Municipio</span>
+        <strong>{{ ficha.id_ambiente.ambiente }}</strong>
+        <small>{{ ficha.codigo_municipio.municipio|title }}</small>
+    </div>
+    <div class="resumen-card resumen-card-metric">
+        <span class="resumen-label">Horas por día (horario)</span>
+        <strong id="horasDiaResumen">{{ horas_por_dia }}</strong>
+    </div>
+</div>
+
+<div class="acciones-panel">
+    <a class="btn-secondary btn-inline" href="{% url 'dinamizador_ficha_programacion' ficha.codigo_ficha %}">Volver a ficha</a>
+    <form method="post" action="{% url 'dinamizador_toggle_modo_pruebas_programacion' %}" class="acciones-inline-form">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{% url 'dinamizador_ficha_programacion_mes' ficha.codigo_ficha anio mes %}">
+        <input type="hidden" name="activar" value="{% if modo_pruebas_programacion %}0{% else %}1{% endif %}">
+        <button type="submit" class="{% if modo_pruebas_programacion %}btn-test-mode-on{% else %}btn-test-mode-off{% endif %}">
+            {% if modo_pruebas_programacion %}Modo pruebas activo (clic para desactivar){% else %}Activar modo pruebas{% endif %}
+        </button>
+    </form>
+</div>
+
+<div class="programacion-mes-layout">
+    <section class="meses-card panel-asignacion">
+        <h4>Asignar programación</h4>
+        <div class="field-group">
+            <label for="resultadoFiltro">Resultado</label>
+            <div class="resultado-filtro-widget">
+            <input type="text" id="resultadoFiltro"
+                   placeholder="🔍 Filtrar resultados..."
+                   autocomplete="off"
+                   {% if not resultados_catalogo %}disabled{% endif %}>
+            <select id="resultadoSelect" size="6"
+                    {% if not resultados_catalogo %}disabled{% endif %}>
+                <option value="">-- Seleccionar resultado --</option>
+                {% for resultado in resultados_catalogo %}
+                    <option
+                        value="{{ resultado.id }}"
+                        data-competencia-id="{{ resultado.competencia_id }}"
+                    >
+                        {{ resultado.label }}
+                    </option>
+                {% endfor %}
+            </select>
+            </div>
+            <label for="competenciaNombreInput" style="margin-top:.5rem;">Competencia</label>
+            <input type="text" id="competenciaNombreInput" readonly placeholder="Se completará al seleccionar un resultado" style="background:#f5f7f6; cursor:default; color:#1f2d24;">
+            <select id="competenciaSelect" style="display:none;">
+                <option value="">Seleccionar...</option>
+                {% for competencia in competencias %}
+                    <option
+                        value="{{ competencia.id }}"
+                        data-tipo="{{ competencia.tipo }}"
+                        data-max="{{ competencia.horas_max }}"
+                        data-programadas="{{ competencia.horas_programadas }}"
+                    >
+                        {{ competencia.nombre }} ({{ competencia.tipo|title }})
+                    </option>
+                {% endfor %}
+            </select>
+            <small id="competenciaSeleccionadaInfo" style="display:none;">Competencia: ninguna.</small>
+            <small id="tipoCompetenciaHint">Selecciona un resultado para cargar instructores elegibles de su competencia.</small>
+        </div>
+
+        <div class="field-group">
+            <label for="equipoFiltroSelect">Filtro de equipo ejecutor (solo transversal)</label>
+            <select id="equipoFiltroSelect" disabled>
+                <option value="{{ ficha.id_equipo_id }}">Equipo de la ficha</option>
+                {% for equipo in equipos %}
+                    <option value="{{ equipo.id_equipo }}">{{ equipo.nombre }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="field-group">
+            <label for="instructorSelect">Instructor</label>
+            <select id="instructorSelect" disabled>
+                <option value="">Seleccionar...</option>
+            </select>
+        </div>
+
+        <div class="field-group">
+            <label for="ambienteSelect">Ambiente de programación</label>
+            <select id="ambienteSelect">
+                <option value="{{ ficha.id_ambiente_id }}">{{ ficha.id_ambiente.ambiente }} (predeterminado ficha)</option>
+                {% for ambiente in ambientes_otros %}
+                    <option value="{{ ambiente.id_ambiente }}">{{ ambiente.ambiente }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="field-group">
+            <div class="horario-especial-head">
+                <label for="horarioEspecialCheck">Usar horario especial para esta programación</label>
+                <input type="checkbox" id="horarioEspecialCheck">
+            </div>
+            <div id="horarioEspecialCampos" class="horario-especial-campos">
+                <input type="time" id="horaInicioEspecial" value="{{ hora_inicio_base }}" disabled>
+                <span>a</span>
+                <input type="time" id="horaFinEspecial" value="{{ hora_fin_base }}" disabled>
+                <small id="horasEspecialHint">Horas especiales por día: {{ horas_por_dia }}</small>
+            </div>
+        </div>
+
+        <div class="contador-grid" id="contadorGrid">
+            <div class="contador-card">
+                <span>Competencia</span>
+                <strong id="competenciaEstado">0 / 0 h</strong>
+                <small id="competenciaRestante">Restantes: 0 h</small>
+            </div>
+            <div class="contador-card">
+                <span>Instructor - Mes</span>
+                <strong id="instructorMes">0 / 160 h</strong>
+                <small id="instructorMinimo">Mínimo mensual: 140 h</small>
+            </div>
+            <div class="contador-card">
+                <span>Instructor - Año</span>
+                <strong id="instructorAnio">0 / 1680 h</strong>
+                <small id="instructorMinimoAnual">Mínimo anual: 1000 h</small>
+                <small id="instructorEstado">Sin selección</small>
+            </div>
+        </div>
+
+        <div id="alertasContenedor" class="alertas-programacion"></div>
+        <div id="cargandoContenedor" class="cargando-programacion" style="display:none;">Cargando datos del mes...</div>
+        <div id="resultadoContenedor" class="resultado-programacion"></div>
+
+        <div class="modal-footer">
+            <button type="button" class="btn-secondary" id="btnLimpiarSeleccion">Limpiar selección</button>
+            <button type="button" class="btn-primary" id="btnGuardarProgramacion" disabled>Guardar programación</button>
+        </div>
+    </section>
+
+    <section class="meses-card calendario-panel">
+        <h4>Calendario editable</h4>
+        <p>Selecciona resultado (define competencia) e instructor; luego marca los días para programar.</p>
+        <div class="leyenda-calendario">
+            <span><i class="tag-color disponible"></i>Disponible</span>
+            <span><i class="tag-color seleccionado"></i>Seleccionado</span>
+            <span><i class="tag-color bloqueado"></i>Bloqueado por traslape</span>
+        </div>
+        <div class="tabla-wrap" id="resultadosWrap" style="display:none; margin-bottom: 1rem;">
+            <h5 style="margin-bottom: .6rem;">Resultados de la competencia seleccionada</h5>
+            <small>Selecciona los resultados y define el rango de fechas donde se veran dentro de los dias marcados.</small>
+            <div class="field-group" style="margin-top: .8rem;">
+                <label for="objetivoHorasInput">Objetivo de horas de la competencia</label>
+                <input type="number" id="objetivoHorasInput" min="0" step="0.01" value="0">
+                <small id="objetivoHorasHint">Recomendado: 75% de la competencia.</small>
+                <small id="objetivoHorasWarning" style="display:block;"></small>
+            </div>
+            <table class="tabla-fichas" id="tablaResultadosCompetencia" style="margin-top: .5rem;">
+                <thead>
+                <tr>
+                    <th>Aplicar</th>
+                    <th>Resultado</th>
+                    <th>Horas objetivo</th>
+                    <th>Desde</th>
+                    <th>Hasta</th>
+                </tr>
+                </thead>
+                <tbody id="resultadosBody">
+                </tbody>
+            </table>
+        </div>
+        <div class="tabla-wrap" id="calendarioWrap">
+            <table class="tabla-calendario tabla-calendario-selectable" id="tablaCalendarioMes">
+                <thead>
+                <tr>
+                    <th>Lun</th>
+                    <th>Mar</th>
+                    <th>Mié</th>
+                    <th>Jue</th>
+                    <th>Vie</th>
+                    <th>Sab</th>
+                    <th>Dom</th>
+                </tr>
+                </thead>
+                <tbody id="calendarioBody">
+                {% for semana in calendario_mes.semanas %}
+                    <tr>
+                        {% for celda in semana %}
+                            <td
+                                class="{% if celda.day == 0 %}dia-vacio{% elif celda.in_range %}dia-activo{% else %}dia-fuera-rango{% endif %}{% if celda.ocupada_ficha or celda.ocupada_ambiente or celda.ocupada_instructor or celda.ocupada_radicado or celda.es_domingo %} dia-bloqueado{% endif %}"
+                                {% if celda.in_range %}data-date="{{ celda.date }}"{% endif %}
+                            >
+                                {% if celda.day != 0 %}{{ celda.day }}{% endif %}
+                            </td>
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="seleccion-info">
+            <span>Días seleccionados: <strong id="contadorDias">0</strong></span>
+            <span>Horas por día: <strong id="horasDia">{{ horas_por_dia }}</strong></span>
+            <span>Horas nuevas proyectadas: <strong id="horasNuevas">0</strong></span>
+            <span id="ajusteNocheInfo"></span>
+        </div>
+    </section>
+</div>
+
+<script>
+    (function () {
+        const state = {
+            selectedDates: new Set(),
+            horasPorDia: Number('{{ horas_por_dia|default:0 }}') || 0,
+            rangoBaseInicio: '{{ hora_inicio_base }}',
+            rangoBaseFin: '{{ hora_fin_base }}',
+            competenciaActual: null,
+            resumenInstructor: null,
+            resultadosCompetencia: [],
+            fechasResultadosCompetencia: [],
+            resultadosAsignacionDraft: {},
+            objetivoHoras: 0,
+            recomendadoHoras: 0,
+            maxHorasCompetencia: 0,
+            horasResultados: {},
+            horasFijadas: {},
+            competenciaIdActual: null,
+            editMode: false,
+            editProgramacionId: null,
+            fechasProgramacionActual: new Set(),
+            horasBaseEdicion: 0,
+            fechasAjusteNocheAuto: new Set(),
+        };
+
+        const calendarioBody = document.getElementById('calendarioBody');
+        const resultadoSelect = document.getElementById('resultadoSelect');
+        const competenciaSelect = document.getElementById('competenciaSelect');
+        const competenciaSeleccionadaInfo = document.getElementById('competenciaSeleccionadaInfo');
+        const competenciaNombreInput = document.getElementById('competenciaNombreInput');
+        const resultadoFiltro = document.getElementById('resultadoFiltro');
+        const instructorSelect = document.getElementById('instructorSelect');
+        const equipoFiltroSelect = document.getElementById('equipoFiltroSelect');
+        const ambienteSelect = document.getElementById('ambienteSelect');
+        const contadorDias = document.getElementById('contadorDias');
+        const horasDia = document.getElementById('horasDia');
+        const horasNuevas = document.getElementById('horasNuevas');
+        const ajusteNocheInfo = document.getElementById('ajusteNocheInfo');
+        const competenciaEstado = document.getElementById('competenciaEstado');
+        const competenciaRestante = document.getElementById('competenciaRestante');
+        const instructorMes = document.getElementById('instructorMes');
+        const instructorAnio = document.getElementById('instructorAnio');
+        const instructorMinimo = document.getElementById('instructorMinimo');
+        const instructorMinimoAnual = document.getElementById('instructorMinimoAnual');
+        const instructorEstado = document.getElementById('instructorEstado');
+        const tipoCompetenciaHint = document.getElementById('tipoCompetenciaHint');
+        const alertasContenedor = document.getElementById('alertasContenedor');
+        const cargandoContenedor = document.getElementById('cargandoContenedor');
+        const resultadoContenedor = document.getElementById('resultadoContenedor');
+        const btnLimpiar = document.getElementById('btnLimpiarSeleccion');
+        const btnGuardar = document.getElementById('btnGuardarProgramacion');
+        const resultadosWrap = document.getElementById('resultadosWrap');
+        const resultadosBody = document.getElementById('resultadosBody');
+        const objetivoHorasInput = document.getElementById('objetivoHorasInput');
+        const objetivoHorasHint = document.getElementById('objetivoHorasHint');
+        const objetivoHorasWarning = document.getElementById('objetivoHorasWarning');
+        const modoEdicionBox = document.getElementById('modoEdicionBox');
+        const modoEdicionId = document.getElementById('modoEdicionId');
+        const modoEdicionCompetencia = document.getElementById('modoEdicionCompetencia');
+        const modoEdicionInstructor = document.getElementById('modoEdicionInstructor');
+        const horarioEspecialCheck = document.getElementById('horarioEspecialCheck');
+        const horaInicioEspecial = document.getElementById('horaInicioEspecial');
+        const horaFinEspecial = document.getElementById('horaFinEspecial');
+        const horasEspecialHint = document.getElementById('horasEspecialHint');
+        const horarioEspecialCampos = document.getElementById('horarioEspecialCampos');
+
+        const urlDatos = "{% url 'api_ficha_programacion_mes_datos' ficha.codigo_ficha anio mes %}";
+        const urlGuardar = "{% url 'api_ficha_programacion_mes_guardar' ficha.codigo_ficha anio mes %}";
+        const urlDetalleBase = "{% url 'api_ficha_programacion_detalle' ficha.codigo_ficha 999999 %}";
+        const urlEditarBase = "{% url 'api_ficha_programacion_editar' ficha.codigo_ficha anio mes 999999 %}";
+        const politicaMes = {
+            permiteCrear: {% if politica_mes.permite_crear %}true{% else %}false{% endif %},
+            permiteEditar: {% if politica_mes.permite_editar %}true{% else %}false{% endif %},
+            mensajeCreacion: "{{ politica_mes.mensaje_creacion|escapejs }}",
+            mensajeEdicion: "{{ politica_mes.mensaje_edicion|escapejs }}",
+        };
+
+        function urlDetalle(idProgramacion) {
+            return urlDetalleBase.replace('999999', String(idProgramacion));
+        }
+
+        function urlEditar(idProgramacion) {
+            return urlEditarBase.replace('999999', String(idProgramacion));
+        }
+
+        function getCookie(name) {
+            const value = '; ' + document.cookie;
+            const parts = value.split('; ' + name + '=');
+            if (parts.length === 2) {
+                return parts.pop().split(';').shift();
+            }
+            return '';
+        }
+
+        function clearAlerts() {
+            alertasContenedor.innerHTML = '';
+        }
+
+        function setLoading(isLoading) {
+            cargandoContenedor.style.display = isLoading ? 'block' : 'none';
+            if (isLoading) {
+                btnGuardar.disabled = true;
+            }
+        }
+
+        function showAlert(message, type) {
+            var cls = 'alert-programacion ' + (type || 'info');
+            var existing = Array.from(alertasContenedor.children);
+            if (existing.some(function (el) { return el.textContent === message && el.className === cls; })) { return; }
+            const box = document.createElement('div');
+            box.className = cls;
+            box.textContent = message;
+            alertasContenedor.appendChild(box);
+        }
+
+        function actualizarCompetenciaSeleccionadaInfo() {
+            if (!competenciaNombreInput || !competenciaSelect) {
+                return;
+            }
+            const opt = competenciaSelect.options[competenciaSelect.selectedIndex];
+            if (!opt || !opt.value) {
+                competenciaNombreInput.value = '';
+                return;
+            }
+            const nombre = String(opt.textContent || '').replace(/\s+/g, ' ').trim();
+            competenciaNombreInput.value = nombre;
+        }
+
+        function seleccionarPrimerResultadoPorCompetencia(competenciaId) {
+            if (!resultadoSelect || !competenciaId) {
+                return;
+            }
+            const opciones = Array.from(resultadoSelect.options || []);
+            const match = opciones.find(function (opt) {
+                return opt.value && String(opt.getAttribute('data-competencia-id') || '') === String(competenciaId);
+            });
+            if (match) {
+                resultadoSelect.value = String(match.value);
+            }
+        }
+
+        function round2(valor) {
+            return Math.round((Number(valor) || 0) * 100) / 100;
+        }
+
+        function distribuirEquitativo(total, ids) {
+            const listado = ids || [];
+            if (!listado.length) {
+                return {};
+            }
+            const totalNorm = round2(total);
+            const base = round2(totalNorm / listado.length);
+            const mapa = {};
+            listado.forEach(function (id) {
+                mapa[String(id)] = base;
+            });
+            const suma = round2(Object.values(mapa).reduce(function (acc, val) { return acc + Number(val || 0); }, 0));
+            const ajuste = round2(totalNorm - suma);
+            const ultimo = String(listado[listado.length - 1]);
+            mapa[ultimo] = round2(Number(mapa[ultimo] || 0) + ajuste);
+            return mapa;
+        }
+
+        function ajustarDistribucionATotal(mapaBase, totalObjetivo, ids) {
+            const listado = (ids || []).map(function (id) { return String(id); });
+            if (!listado.length) {
+                return {};
+            }
+            const total = round2(totalObjetivo);
+            const mapa = {};
+            listado.forEach(function (id) {
+                mapa[id] = Math.max(0, round2(Number((mapaBase || {})[id] || 0)));
+            });
+            const sumaActual = round2(listado.reduce(function (acc, id) { return acc + Number(mapa[id] || 0); }, 0));
+
+            if (sumaActual <= 0) {
+                return distribuirEquitativo(total, listado);
+            }
+
+            listado.forEach(function (id) {
+                mapa[id] = round2((Number(mapa[id] || 0) * total) / sumaActual);
+            });
+
+            const sumaEscalada = round2(listado.reduce(function (acc, id) { return acc + Number(mapa[id] || 0); }, 0));
+            const ajuste = round2(total - sumaEscalada);
+            const ultimo = listado[listado.length - 1];
+            mapa[ultimo] = round2(Number(mapa[ultimo] || 0) + ajuste);
+            return mapa;
+        }
+
+        function totalHorasResultados() {
+            return round2(Object.values(state.horasResultados || {}).reduce(function (acc, val) {
+                return acc + Number(val || 0);
+            }, 0));
+        }
+
+        function actualizarObjetivoHints() {
+            if (!state.competenciaActual) {
+                objetivoHorasHint.textContent = 'Recomendado: 75% de la competencia.';
+                objetivoHorasWarning.textContent = '';
+                return;
+            }
+
+            const porcentaje = state.maxHorasCompetencia > 0
+                ? round2((state.objetivoHoras / state.maxHorasCompetencia) * 100)
+                : 0;
+            objetivoHorasHint.textContent = 'Recomendado: ' + state.recomendadoHoras.toFixed(2) + ' h (75%). Objetivo actual: ' + state.objetivoHoras.toFixed(2) + ' h (' + porcentaje.toFixed(2) + '%).';
+
+            if (state.objetivoHoras < state.recomendadoHoras) {
+                objetivoHorasWarning.textContent = 'Aviso: estás por debajo del 75% recomendado. Es permitido.';
+            } else {
+                objetivoHorasWarning.textContent = '';
+            }
+        }
+
+        function inicializarObjetivoDesdeCompetencia() {
+            if (!state.competenciaActual) {
+                state.maxHorasCompetencia = 0;
+                state.recomendadoHoras = 0;
+                state.objetivoHoras = 0;
+                state.horasFijadas = {};
+                objetivoHorasInput.value = '0';
+                actualizarObjetivoHints();
+                return;
+            }
+
+            state.maxHorasCompetencia = round2(Number(state.competenciaActual.horas_max || 0));
+            state.recomendadoHoras = round2(state.maxHorasCompetencia * 0.75);
+
+            if (!Number.isFinite(state.objetivoHoras) || state.objetivoHoras < 0) {
+                state.objetivoHoras = 0;
+            }
+            if (state.objetivoHoras === 0 && !state.editMode) {
+                state.objetivoHoras = state.recomendadoHoras;
+            }
+            if (state.objetivoHoras > state.maxHorasCompetencia) {
+                state.objetivoHoras = state.maxHorasCompetencia;
+            }
+
+            objetivoHorasInput.max = String(state.maxHorasCompetencia);
+            objetivoHorasInput.value = String(state.objetivoHoras);
+            actualizarObjetivoHints();
+        }
+
+        function inicializarHorasResultadosSiHaceFalta() {
+            const ids = (state.resultadosCompetencia || []).map(function (item) { return String(item.id); });
+            if (!ids.length) {
+                state.horasResultados = {};
+                state.horasFijadas = {};
+                return;
+            }
+
+            const tieneTodos = ids.every(function (id) {
+                return Object.prototype.hasOwnProperty.call(state.horasResultados || {}, id);
+            });
+
+            if (!tieneTodos) {
+                const nueva = {};
+                ids.forEach(function (id) {
+                    nueva[id] = round2(Number((state.horasResultados || {})[id] || 0));
+                    state.horasFijadas[id] = Boolean((state.horasFijadas || {})[id]);
+                });
+                state.horasResultados = nueva;
+                return;
+            }
+
+            ids.forEach(function (id) {
+                if (!Object.prototype.hasOwnProperty.call(state.horasResultados || {}, id)) {
+                    state.horasResultados[id] = 0;
+                }
+                if (!Object.prototype.hasOwnProperty.call(state.horasFijadas || {}, id)) {
+                    state.horasFijadas[id] = false;
+                }
+            });
+        }
+
+        function redistribuirConFijos(totalObjetivo, ids) {
+            const listado = (ids || []).map(function (id) { return String(id); });
+            if (!listado.length) {
+                return {};
+            }
+
+            const mapa = {};
+            listado.forEach(function (id) {
+                mapa[id] = Math.max(0, round2(Number((state.horasResultados || {})[id] || 0)));
+            });
+
+            const idsFijos = listado.filter(function (id) { return Boolean((state.horasFijadas || {})[id]); });
+            const idsLibres = listado.filter(function (id) { return !Boolean((state.horasFijadas || {})[id]); });
+            const sumaFijos = round2(idsFijos.reduce(function (acc, id) {
+                return acc + Number(mapa[id] || 0);
+            }, 0));
+
+            if (!idsLibres.length) {
+                return mapa;
+            }
+
+            const disponible = round2(Math.max(0, totalObjetivo - sumaFijos));
+            const sumaLibres = round2(idsLibres.reduce(function (acc, id) {
+                return acc + Number(mapa[id] || 0);
+            }, 0));
+
+            if (sumaLibres <= 0) {
+                const eq = distribuirEquitativo(disponible, idsLibres);
+                idsLibres.forEach(function (id) {
+                    mapa[id] = round2(eq[id] || 0);
+                });
+            } else {
+                idsLibres.forEach(function (id) {
+                    mapa[id] = round2((Number(mapa[id] || 0) * disponible) / sumaLibres);
+                });
+                const sumaPost = round2(idsLibres.reduce(function (acc, id) {
+                    return acc + Number(mapa[id] || 0);
+                }, 0));
+                const ajuste = round2(disponible - sumaPost);
+                const ultimo = idsLibres[idsLibres.length - 1];
+                mapa[ultimo] = round2(Number(mapa[ultimo] || 0) + ajuste);
+            }
+
+            return mapa;
+        }
+
+        function aplicarCambioHorasResultado(resultadoId, nuevoValorRaw) {
+            const ids = (state.resultadosCompetencia || []).map(function (item) { return String(item.id); });
+            if (!ids.length) {
+                return;
+            }
+
+            const rid = String(resultadoId);
+            const indice = ids.indexOf(rid);
+            if (indice < 0) {
+                return;
+            }
+            if (Boolean((state.horasFijadas || {})[rid])) {
+                return;
+            }
+
+            let nuevoValor = round2(Number(nuevoValorRaw || 0));
+            if (nuevoValor < 0) {
+                nuevoValor = 0;
+            }
+
+            const idsArriba = ids.slice(0, indice);
+            const sumaArriba = round2(idsArriba.reduce(function (acc, id) {
+                return acc + Number(state.horasResultados[id] || 0);
+            }, 0));
+
+            const idsAbajo = ids.slice(indice + 1);
+            const idsAbajoFijos = idsAbajo.filter(function (id) { return Boolean((state.horasFijadas || {})[id]); });
+            const sumaAbajoFijos = round2(idsAbajoFijos.reduce(function (acc, id) {
+                return acc + Number(state.horasResultados[id] || 0);
+            }, 0));
+
+            const maxActual = round2(Math.max(0, state.objetivoHoras - sumaArriba - sumaAbajoFijos));
+            if (nuevoValor > maxActual) {
+                nuevoValor = maxActual;
+            }
+
+            const idsAbajoLibres = idsAbajo.filter(function (id) { return !Boolean((state.horasFijadas || {})[id]); });
+            const restante = round2(Math.max(0, state.objetivoHoras - sumaArriba - sumaAbajoFijos - nuevoValor));
+
+            state.horasResultados[rid] = nuevoValor;
+
+            if (!idsAbajoLibres.length) {
+                state.horasResultados[rid] = maxActual;
+                return;
+            }
+
+            const sumaAbajoActual = round2(idsAbajoLibres.reduce(function (acc, id) {
+                return acc + Number(state.horasResultados[id] || 0);
+            }, 0));
+
+            if (sumaAbajoActual <= 0) {
+                const reparto = distribuirEquitativo(restante, idsAbajoLibres);
+                idsAbajoLibres.forEach(function (id) {
+                    state.horasResultados[id] = round2(reparto[id] || 0);
+                });
+                return;
+            }
+
+            idsAbajoLibres.forEach(function (id) {
+                const proporcion = Number(state.horasResultados[id] || 0) / sumaAbajoActual;
+                state.horasResultados[id] = round2(restante * proporcion);
+            });
+
+            const sumaAbajoFinal = round2(idsAbajoLibres.reduce(function (acc, id) {
+                return acc + Number(state.horasResultados[id] || 0);
+            }, 0));
+            const ajuste = round2(restante - sumaAbajoFinal);
+            const ultimoAbajo = idsAbajoLibres[idsAbajoLibres.length - 1];
+            state.horasResultados[ultimoAbajo] = round2(Number(state.horasResultados[ultimoAbajo] || 0) + ajuste);
+        }
+
+        function buildHorasResultadosPayload() {
+            const ids = (state.resultadosCompetencia || []).map(function (item) { return String(item.id); });
+            return ids.map(function (rid) {
+                return {
+                    resultado_id: Number(rid),
+                    horas: round2(Number(state.horasResultados[rid] || 0)),
+                    fijada: Boolean((state.horasFijadas || {})[rid]),
+                };
+            });
+        }
+
+        function timeToMinutes(valor) {
+            if (!valor || valor.indexOf(':') < 0) {
+                return null;
+            }
+            const partes = valor.split(':');
+            const h = Number(partes[0]);
+            const m = Number(partes[1]);
+            if (!Number.isFinite(h) || !Number.isFinite(m)) {
+                return null;
+            }
+            return (h * 60) + m;
+        }
+
+        function horasEspecialesPorDia() {
+            if (!horarioEspecialCheck.checked) {
+                return state.horasPorDia;
+            }
+
+            const inicio = timeToMinutes(horaInicioEspecial.value);
+            const fin = timeToMinutes(horaFinEspecial.value);
+            const baseInicio = timeToMinutes(state.rangoBaseInicio);
+            const baseFin = timeToMinutes(state.rangoBaseFin);
+
+            if (inicio === null || fin === null || baseInicio === null || baseFin === null) {
+                return null;
+            }
+            if (inicio < baseInicio || fin > baseFin || fin <= inicio) {
+                return null;
+            }
+
+            const minutos = fin - inicio;
+            if (minutos <= 0 || (minutos % 60) !== 0) {
+                return null;
+            }
+
+            return minutos / 60;
+        }
+
+        function syncHorarioEspecialHint() {
+            const horas = horasEspecialesPorDia();
+            if (!horarioEspecialCheck.checked) {
+                horasEspecialHint.textContent = 'Horas especiales por día: ' + state.horasPorDia;
+                return;
+            }
+            if (horas === null) {
+                horasEspecialHint.textContent = 'Horario especial inválido';
+                return;
+            }
+            horasEspecialHint.textContent = 'Horas especiales por día: ' + horas;
+        }
+
+        function updateHorarioEspecialUI() {
+            const habilitado = Boolean(horarioEspecialCheck.checked);
+            horaInicioEspecial.disabled = !habilitado;
+            horaFinEspecial.disabled = !habilitado;
+            horarioEspecialCampos.style.display = habilitado ? 'flex' : 'none';
+            syncHorarioEspecialHint();
+        }
+
+        function updateProjectionCounters() {
+            const dias = state.selectedDates.size;
+            const horasPorDiaActual = horasEspecialesPorDia();
+            const horasValidas = horasPorDiaActual !== null;
+            let horasProyeccion = horasValidas ? horasPorDiaActual : 0;
+            let proyectadas = dias * horasProyeccion;
+            let diasAjusteNoche = 0;
+
+            if (!horarioEspecialCheck.checked && horasValidas && dias > 0 && state.fechasAjusteNocheAuto.size > 0) {
+                proyectadas = 0;
+                Array.from(state.selectedDates).forEach(function (fecha) {
+                    if (state.fechasAjusteNocheAuto.has(fecha)) {
+                        proyectadas += 3;
+                        diasAjusteNoche += 1;
+                    } else {
+                        proyectadas += horasProyeccion;
+                    }
+                });
+
+                if (diasAjusteNoche === dias) {
+                    horasProyeccion = 3;
+                    horasDia.textContent = '3';
+                } else {
+                    horasDia.textContent = '3/' + String(horasProyeccion);
+                }
+            } else {
+                horasDia.textContent = horasValidas ? String(horasProyeccion) : '0';
+            }
+
+            contadorDias.textContent = String(dias);
+            horasNuevas.textContent = String(proyectadas.toFixed(2));
+
+            if (diasAjusteNoche > 0) {
+                ajusteNocheInfo.textContent = diasAjusteNoche + ' día(s) con ajuste automático nocturno: 19:00-22:00 (3h).';
+            } else {
+                ajusteNocheInfo.textContent = '';
+            }
+
+            if (horarioEspecialCheck.checked && !horasValidas) {
+                showAlert('Horario especial inválido. Debe estar dentro del rango base y en horas completas.', 'warning');
+            }
+
+            if (state.competenciaActual) {
+                const usado = Number(state.competenciaActual.horas_programadas || 0);
+                const maximo = Number(state.competenciaActual.horas_max || 0);
+                const usadoBaseAjustado = state.editMode ? Math.max(0, usado - state.horasBaseEdicion) : usado;
+                const proyectado = usadoBaseAjustado + proyectadas;
+                competenciaEstado.textContent = proyectado.toFixed(2) + ' / ' + maximo.toFixed(2) + ' h';
+                competenciaRestante.textContent = 'Restantes: ' + Math.max(0, maximo - proyectado).toFixed(2) + ' h';
+
+                if (proyectado > maximo) {
+                    showAlert('La selección supera las horas máximas de la competencia.', 'error');
+                }
+            } else {
+                competenciaEstado.textContent = '0 / 0 h';
+                competenciaRestante.textContent = 'Restantes: 0 h';
+            }
+
+            if (state.resumenInstructor) {
+                const mesActual = Number(state.resumenInstructor.horas_mes || 0);
+                const anioActual = Number(state.resumenInstructor.horas_anio || 0);
+                const maxMes = Number(state.resumenInstructor.max_mensual || 160);
+                const maxAnio = Number(state.resumenInstructor.objetivo_anual || 1680);
+                const proyectadoMes = mesActual + proyectadas;
+                const proyectadoAnio = anioActual + proyectadas;
+
+                instructorMes.textContent = proyectadoMes.toFixed(2) + ' / ' + maxMes + ' h';
+                instructorAnio.textContent = proyectadoAnio.toFixed(2) + ' / ' + maxAnio + ' h';
+
+                const minimoData = state.resumenInstructor.minimo_mensual || {};
+                const minimo = Number(minimoData.minimo || 140);
+                const minimoAnualData = state.resumenInstructor.minimo_anual || {};
+                const minimoAnual = Number(minimoAnualData.minimo || 1000);
+                instructorMinimo.textContent = 'Mínimo mensual: ' + minimo + ' h';
+                instructorMinimoAnual.textContent = 'Mínimo anual: ' + minimoAnual + ' h';
+
+                if (proyectadoMes > maxMes) {
+                    instructorEstado.textContent = 'Aviso: supera meta mensual';
+                    showAlert('Aviso: la selección supera la meta mensual del instructor.', 'warning');
+                } else if (proyectadoAnio > maxAnio) {
+                    instructorEstado.textContent = 'Aviso: supera meta anual';
+                    showAlert('Aviso: la selección supera la meta anual del instructor.', 'warning');
+                } else {
+                    instructorEstado.textContent = 'Dentro de limites';
+                }
+            } else {
+                instructorMes.textContent = '0 / 160 h';
+                instructorAnio.textContent = '0 / 1680 h';
+                instructorMinimo.textContent = 'Mínimo mensual: 140 h';
+                instructorMinimoAnual.textContent = 'Mínimo anual: 1000 h';
+                instructorEstado.textContent = 'Sin selección';
+            }
+
+            const sumaHorasRes = totalHorasResultados();
+            if (state.maxHorasCompetencia > 0 && sumaHorasRes > state.maxHorasCompetencia) {
+                showAlert('La suma de horas de resultados (' + sumaHorasRes.toFixed(2) + ' h) supera las horas máximas de la competencia (' + state.maxHorasCompetencia.toFixed(2) + ' h).', 'warning');
+            }
+
+            const resultadosSeleccionados = cantidadResultadosSeleccionados();
+            const puedeGuardarBase = Boolean(competenciaSelect.value) && Boolean(instructorSelect.value) && dias > 0 && horasValidas && resultadosSeleccionados > 0;
+            const permisoOperacion = state.editMode ? politicaMes.permiteEditar : politicaMes.permiteCrear;
+            btnGuardar.disabled = !puedeGuardarBase || !permisoOperacion;
+
+            if (state.editMode && !politicaMes.permiteEditar) {
+                btnGuardar.textContent = 'Edición bloqueada';
+            } else if (!state.editMode && !politicaMes.permiteCrear) {
+                btnGuardar.textContent = 'Creación bloqueada';
+            } else {
+                btnGuardar.textContent = state.editMode ? 'Actualizar programación' : 'Guardar programación';
+            }
+        }
+
+        function fechasPermitidasResultados() {
+            return Array.from(state.selectedDates).sort();
+        }
+
+        function horasDiaPorFecha(fechaIso) {
+            const horasEspeciales = horasEspecialesPorDia();
+            if (horasEspeciales === null) {
+                return 0;
+            }
+            if (horarioEspecialCheck.checked) {
+                return Number(horasEspeciales || 0);
+            }
+            if (state.fechasAjusteNocheAuto.has(fechaIso)) {
+                return 3;
+            }
+            return Number(horasEspeciales || 0);
+        }
+
+        function horasSeleccionadasResultado(draft) {
+            if (!draft || !draft.checked || !draft.fecha_inicio || !draft.fecha_fin) {
+                return 0;
+            }
+            const desde = draft.fecha_inicio <= draft.fecha_fin ? draft.fecha_inicio : draft.fecha_fin;
+            const hasta = draft.fecha_inicio <= draft.fecha_fin ? draft.fecha_fin : draft.fecha_inicio;
+            return round2(Array.from(state.selectedDates).reduce(function (acc, fechaIso) {
+                if (fechaIso >= desde && fechaIso <= hasta) {
+                    return acc + horasDiaPorFecha(fechaIso);
+                }
+                return acc;
+            }, 0));
+        }
+
+        function cantidadResultadosSeleccionados() {
+            if (!resultadosBody) {
+                return 0;
+            }
+            return resultadosBody.querySelectorAll('.resultado-check:checked').length;
+        }
+
+        function capturarDraftResultados() {
+            if (!resultadosBody) {
+                return;
+            }
+            const filas = Array.from(resultadosBody.querySelectorAll('tr'));
+            filas.forEach(function (fila) {
+                const check = fila.querySelector('.resultado-check');
+                const desde = fila.querySelector('.resultado-desde');
+                const hasta = fila.querySelector('.resultado-hasta');
+                const horas = fila.querySelector('.resultado-horas');
+                if (!check) {
+                    return;
+                }
+                const id = check.getAttribute('data-resultado-id');
+                state.resultadosAsignacionDraft[id] = {
+                    checked: Boolean(check.checked),
+                    fecha_inicio: desde ? desde.value : '',
+                    fecha_fin: hasta ? hasta.value : '',
+                    horas: horas ? round2(horas.value) : round2(state.horasResultados[id] || 0),
+                };
+            });
+        }
+
+        function buildOptionsFechas(fechas, selected) {
+            let html = '<option value="">Seleccionar...</option>';
+            fechas.forEach(function (fecha) {
+                const selectedAttr = selected === fecha ? ' selected' : '';
+                html += '<option value="' + fecha + '"' + selectedAttr + '>' + fecha + '</option>';
+            });
+            return html;
+        }
+
+        function renderResultadosCompetencia(resultados) {
+            capturarDraftResultados();
+            state.resultadosCompetencia = resultados || [];
+            if (!state.resultadosCompetencia.length) {
+                resultadosWrap.style.display = 'none';
+                resultadosBody.innerHTML = '';
+                state.horasResultados = {};
+                return;
+            }
+
+            inicializarObjetivoDesdeCompetencia();
+            inicializarHorasResultadosSiHaceFalta();
+
+            const fechasPermitidas = fechasPermitidasResultados();
+
+            const fechaMin = fechasPermitidas.length ? fechasPermitidas[0] : '';
+            const fechaMax = fechasPermitidas.length ? fechasPermitidas[fechasPermitidas.length - 1] : '';
+
+            let html = '';
+            state.resultadosCompetencia.forEach(function (item) {
+                const draft = state.resultadosAsignacionDraft[String(item.id)] || {};
+                const checked = Boolean(draft.checked);
+                const fijado = Boolean((state.horasFijadas || {})[String(item.id)]);
+                const selectedDesde = draft.fecha_inicio && fechasPermitidas.indexOf(draft.fecha_inicio) >= 0 ? draft.fecha_inicio : fechaMin;
+                const selectedHasta = draft.fecha_fin && fechasPermitidas.indexOf(draft.fecha_fin) >= 0 ? draft.fecha_fin : fechaMax;
+                const draftConRango = {
+                    checked: checked,
+                    fecha_inicio: selectedDesde,
+                    fecha_fin: selectedHasta,
+                };
+                const horasMesSeleccionadas = horasSeleccionadasResultado(draftConRango);
+                const horasDictadas = round2(Number(item.horas_dictadas || 0));
+                const horasValor = round2(state.horasResultados[String(item.id)] || 0).toFixed(2);
+                html += '<tr>';
+                html += '<td><input type="checkbox" class="resultado-check" data-resultado-id="' + item.id + '" ' + (checked ? 'checked' : '') + '></td>';
+                html += '<td>' + item.nombre + '<br><small>Dictadas acumuladas: ' + horasDictadas.toFixed(2) + ' h | Seleccionadas mes: ' + horasMesSeleccionadas.toFixed(2) + ' h</small></td>';
+                html += '<td><div style="display:flex; gap:.35rem; align-items:center; flex-wrap:wrap;">';
+                html += '<input type="number" class="resultado-horas" data-resultado-id="' + item.id + '" min="0" max="' + state.maxHorasCompetencia + '" step="0.01" value="' + horasValor + '"' + (fijado ? ' disabled' : '') + '>';
+                html += '<button type="button" class="btn-secondary btn-inline btn-fijar-horas" data-resultado-id="' + item.id + '"' + (fijado ? ' disabled' : '') + '>Fijar horas</button>';
+                html += '<button type="button" class="btn-secondary btn-inline btn-cambiar-horas" data-resultado-id="' + item.id + '"' + (fijado ? '' : ' disabled') + '>Cambiar</button>';
+                html += '</div></td>';
+                const deshabilitarFechas = !fechasPermitidas.length ? ' disabled' : '';
+                html += '<td><select class="resultado-desde" data-resultado-id="' + item.id + '"' + deshabilitarFechas + '>' + buildOptionsFechas(fechasPermitidas, selectedDesde) + '</select></td>';
+                html += '<td><select class="resultado-hasta" data-resultado-id="' + item.id + '"' + deshabilitarFechas + '>' + buildOptionsFechas(fechasPermitidas, selectedHasta) + '</select></td>';
+                html += '</tr>';
+            });
+
+            resultadosBody.innerHTML = html;
+            resultadosWrap.style.display = '';
+            actualizarObjetivoHints();
+        }
+
+        function buildAsignacionesResultados() {
+            const checks = Array.from(resultadosBody.querySelectorAll('.resultado-check:checked'));
+            const payload = [];
+
+            for (let i = 0; i < checks.length; i += 1) {
+                const resultadoId = checks[i].getAttribute('data-resultado-id');
+                const inputDesde = resultadosBody.querySelector('.resultado-desde[data-resultado-id="' + resultadoId + '"]');
+                const inputHasta = resultadosBody.querySelector('.resultado-hasta[data-resultado-id="' + resultadoId + '"]');
+                const fechaInicio = inputDesde ? inputDesde.value : '';
+                const fechaFin = inputHasta ? inputHasta.value : '';
+
+                if (!fechaInicio || !fechaFin) {
+                    throw new Error('Cada resultado seleccionado debe tener fecha desde y hasta.');
+                }
+
+                payload.push(
+                    {
+                        resultado_id: Number(resultadoId),
+                        fecha_inicio: fechaInicio,
+                        fecha_fin: fechaFin,
+                    }
+                );
+            }
+
+            return payload;
+        }
+
+        function renderCalendario(calendario) {
+            const semanas = (calendario && calendario.semanas) ? calendario.semanas : [];
+            let html = '';
+
+            semanas.forEach(function (semana) {
+                html += '<tr>';
+                semana.forEach(function (celda) {
+                    const day = celda.day || 0;
+                    if (!day) {
+                        html += '<td class="dia-vacio"></td>';
+                        return;
+                    }
+
+                    const classes = [];
+                    if (!celda.in_range) {
+                        classes.push('dia-fuera-rango');
+                    } else {
+                        classes.push('dia-activo');
+                        const bloqueadoTraslape = celda.ocupada_ficha || celda.ocupada_ambiente || celda.ocupada_instructor || celda.ocupada_radicado;
+                        const esDiaActualEnEdicion = state.editMode && state.fechasProgramacionActual.has(celda.date);
+                        const bloquearCelda = celda.es_domingo || (bloqueadoTraslape && !esDiaActualEnEdicion);
+                        if (bloquearCelda) {
+                            classes.push('dia-bloqueado');
+                        }
+                    }
+
+                    const dateAttr = celda.in_range ? ' data-date="' + celda.date + '"' : '';
+                    let title = '';
+                    if (celda.in_range && celda.es_domingo) {
+                        title = ' title="Domingo bloqueado: no se permite programar en domingos"';
+                    } else if (celda.in_range && celda.ocupada_radicado) {
+                        title = ' title="Bloqueado por traslape: actividad adicional aceptada del instructor en este horario"';
+                    } else if (celda.in_range && celda.ocupada_instructor) {
+                        title = ' title="Bloqueado por traslape: instructor ya ocupado en este horario"';
+                    } else if (celda.in_range && celda.ocupada_ambiente) {
+                        title = ' title="Bloqueado por traslape: ambiente ocupado en este horario"';
+                    } else if (celda.in_range && celda.ocupada_ficha) {
+                        title = ' title="Bloqueado por traslape: la ficha ya tiene programación en este horario"';
+                    }
+
+                    if (state.editMode && state.fechasProgramacionActual.has(celda.date) && !celda.es_domingo) {
+                        title = ' title="Día actual de la programación en edición"';
+                    }
+
+                    let contenido = String(day);
+                    if (celda.in_range && celda.ocupada_instructor && celda.instructor_info && celda.instructor_info.length) {
+                        celda.instructor_info.forEach(function (info) {
+                            contenido += '<br><span class="cal-instructor-info">' + String(info.codigo_ficha || '') + '<br>' + String(info.jornada || '') + '</span>';
+                        });
+                    }
+
+                    html += '<td class="' + classes.join(' ') + '"' + dateAttr + title + '>' + contenido + '</td>';
+                });
+                html += '</tr>';
+            });
+
+            calendarioBody.innerHTML = html;
+
+            state.selectedDates = new Set(
+                Array.from(state.selectedDates).filter(function (value) {
+                    return Boolean(calendarioBody.querySelector('td[data-date="' + value + '"]:not(.dia-bloqueado)'));
+                })
+            );
+
+            state.selectedDates.forEach(function (value) {
+                const node = calendarioBody.querySelector('td[data-date="' + value + '"]');
+                if (node) {
+                    node.classList.add('dia-seleccionado');
+                }
+            });
+        }
+
+        function activarModoEdicion(detalle) {
+            const prog = detalle.programacion || {};
+            state.editMode = true;
+            state.editProgramacionId = Number(prog.id || 0);
+            state.fechasProgramacionActual = new Set(prog.fechas || []);
+            let horasEdicionDia = state.horasPorDia;
+            if (prog.usa_horario_especial) {
+                horarioEspecialCheck.checked = true;
+                horaInicioEspecial.value = prog.hora_inicio || state.rangoBaseInicio;
+                horaFinEspecial.value = prog.hora_fin || state.rangoBaseFin;
+            } else {
+                horarioEspecialCheck.checked = false;
+                horaInicioEspecial.value = state.rangoBaseInicio;
+                horaFinEspecial.value = state.rangoBaseFin;
+            }
+            updateHorarioEspecialUI();
+            const horasCalc = horasEspecialesPorDia();
+            if (horasCalc !== null) {
+                horasEdicionDia = horasCalc;
+            }
+            state.horasBaseEdicion = state.fechasProgramacionActual.size * horasEdicionDia;
+
+            modoEdicionBox.style.display = 'block';
+            modoEdicionId.textContent = '#' + String(prog.id || '');
+            modoEdicionCompetencia.textContent = prog.competencia_nombre || '';
+            modoEdicionInstructor.textContent = prog.instructor_nombre || '';
+
+            if (prog.ambiente_id) {
+                ambienteSelect.value = String(prog.ambiente_id);
+            }
+            competenciaSelect.value = String(prog.competencia_id || '');
+            competenciaSelect.disabled = true;
+            seleccionarPrimerResultadoPorCompetencia(prog.competencia_id || '');
+            if (resultadoSelect) {
+                resultadoSelect.disabled = true;
+            }
+            if (resultadoFiltro) {
+                resultadoFiltro.disabled = true;
+            }
+            actualizarCompetenciaSeleccionadaInfo();
+            instructorSelect.innerHTML = '<option value="' + String(prog.instructor_id || '') + '" selected>' + (prog.instructor_nombre || 'Instructor') + '</option>';
+            instructorSelect.value = String(prog.instructor_id || '');
+            instructorSelect.disabled = true;
+            updateFiltroEquipoState();
+
+            Object.keys(state.resultadosAsignacionDraft).forEach(function (key) {
+                delete state.resultadosAsignacionDraft[key];
+            });
+            (prog.asignaciones_resultados || []).forEach(function (item) {
+                state.resultadosAsignacionDraft[String(item.resultado_id)] = {
+                    checked: true,
+                    fecha_inicio: item.fecha_inicio,
+                    fecha_fin: item.fecha_fin,
+                };
+            });
+
+            state.objetivoHoras = round2(Number(prog.objetivo_horas || 0));
+            state.recomendadoHoras = round2(Number(prog.recomendado_horas || 0));
+            state.horasResultados = {};
+            state.horasFijadas = {};
+            (prog.horas_resultados || []).forEach(function (item) {
+                state.horasResultados[String(item.resultado_id)] = round2(Number(item.horas || 0));
+                state.horasFijadas[String(item.resultado_id)] = Boolean(item.horas_fijadas);
+            });
+            if (objetivoHorasInput) {
+                objetivoHorasInput.value = String(state.objetivoHoras || 0);
+            }
+            actualizarObjetivoHints();
+
+            state.selectedDates = new Set(prog.fechas || []);
+        }
+
+        function cargarDetalleEdicionSiExiste() {
+            const paramsUrl = new URLSearchParams(window.location.search);
+            const editar = paramsUrl.get('editar');
+            if (!editar) {
+                return Promise.resolve(false);
+            }
+
+            return fetch(urlDetalle(editar), {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+                .then(toJsonText)
+                .then(function (data) {
+                    activarModoEdicion(data || {});
+                    return true;
+                })
+                .catch(function (err) {
+                    showAlert('No se pudo cargar la programación para edición: ' + err.message, 'error');
+                    return false;
+                });
+        }
+
+        function renderInstructores(instructores, seleccionadoActual) {
+            const bloqueadaCreacion = !state.editMode && !politicaMes.permiteCrear;
+            let options = '<option value="">Seleccionar...</option>';
+            instructores.forEach(function (inst) {
+                const selectedAttr = String(seleccionadoActual || '') === String(inst.id) ? ' selected' : '';
+                options += '<option value="' + inst.id + '"' + selectedAttr + '>' + inst.nombre + ' (' + inst.documento + ')</option>';
+            });
+            instructorSelect.innerHTML = options;
+            instructorSelect.disabled = bloqueadaCreacion || instructores.length === 0;
+            if (state.editMode) {
+                instructorSelect.disabled = true;
+            }
+            if (!state.editMode && !politicaMes.permiteCrear) {
+                instructorSelect.disabled = true;
+            }
+            if (instructores.length === 0 && competenciaSelect.value) {
+                showAlert('No hay instructores elegibles para la competencia y filtro seleccionados.', 'warning');
+            }
+        }
+
+        function toJsonText(response) {
+            return response.text().then(function (text) {
+                if (!response.ok) {
+                    throw new Error(text || 'Error HTTP ' + response.status);
+                }
+                return text ? JSON.parse(text) : {};
+            });
+        }
+
+        function loadDatos() {
+            const instructorSeleccionado = instructorSelect.value;
+            const params = new URLSearchParams();
+            if (competenciaSelect.value) {
+                params.set('competencia_id', competenciaSelect.value);
+            }
+            if (instructorSelect.value) {
+                params.set('instructor_id', instructorSelect.value);
+            }
+            if (equipoFiltroSelect.value) {
+                params.set('equipo_filtro_id', equipoFiltroSelect.value);
+            }
+            if (ambienteSelect.value) {
+                params.set('ambiente_id', ambienteSelect.value);
+            }
+
+            setLoading(true);
+            return fetch(urlDatos + '?' + params.toString(), {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+                .then(toJsonText)
+                .then(function (data) {
+                    const competenciaAnteriorId = state.competenciaIdActual;
+                    state.competenciaActual = null;
+
+                    const competencias = data.competencias || [];
+                    const competenciaSeleccionada = Number(competenciaSelect.value || 0);
+                    state.competenciaActual = competencias.find(function (item) {
+                        return Number(item.id) === competenciaSeleccionada;
+                    }) || null;
+                    state.competenciaIdActual = state.competenciaActual ? Number(state.competenciaActual.id) : null;
+                    actualizarCompetenciaSeleccionadaInfo();
+
+                    if (state.competenciaIdActual !== competenciaAnteriorId && !state.editMode) {
+                        state.horasResultados = {};
+                        state.horasFijadas = {};
+                        state.objetivoHoras = 0;
+                        state.recomendadoHoras = round2(Number(data.recomendado_competencia_horas || 0));
+                        (data.resultados_competencia || []).forEach(function (item) {
+                            state.horasResultados[String(item.id)] = 0;
+                            state.horasFijadas[String(item.id)] = false;
+                        });
+                    }
+
+                    renderCalendario(data.calendario || {});
+                    renderInstructores(data.instructores || [], instructorSeleccionado);
+                    state.fechasResultadosCompetencia = data.fechas_resultados_competencia || [];
+                    state.fechasAjusteNocheAuto = new Set(data.fechas_ajuste_noche_auto || []);
+                    renderResultadosCompetencia(data.resultados_competencia || []);
+                    state.resumenInstructor = data.resumen_instructor || null;
+
+                    clearAlerts();
+                    updateProjectionCounters();
+                })
+                .catch(function (err) {
+                    clearAlerts();
+                    showAlert('No se pudo cargar información del mes: ' + err.message, 'error');
+                })
+                .finally(function () {
+                    setLoading(false);
+                    updateProjectionCounters();
+                });
+        }
+
+        calendarioBody.addEventListener('click', function (event) {
+            if (state.editMode) {
+                if (!politicaMes.permiteEditar) {
+                    showAlert(politicaMes.mensajeEdicion || 'La edición no está habilitada para este mes.', 'warning');
+                    return;
+                }
+            } else if (!politicaMes.permiteCrear) {
+                showAlert(politicaMes.mensajeCreacion || 'La creación no está habilitada para este mes.', 'warning');
+                return;
+            }
+
+            const celda = event.target.closest('td[data-date]');
+            if (!celda || celda.classList.contains('dia-bloqueado')) {
+                return;
+            }
+
+            const value = celda.getAttribute('data-date');
+            if (state.selectedDates.has(value)) {
+                state.selectedDates.delete(value);
+                celda.classList.remove('dia-seleccionado');
+            } else {
+                state.selectedDates.add(value);
+                celda.classList.add('dia-seleccionado');
+            }
+
+            clearAlerts();
+            updateProjectionCounters();
+            renderResultadosCompetencia(state.resultadosCompetencia);
+        });
+
+        function updateFiltroEquipoState() {
+            const opt = competenciaSelect.options[competenciaSelect.selectedIndex];
+            const tipo = opt ? (opt.getAttribute('data-tipo') || '') : '';
+            const trasversal = tipo === 'trasversal';
+            equipoFiltroSelect.disabled = !trasversal;
+            if (state.editMode) {
+                equipoFiltroSelect.disabled = true;
+            }
+            if (!trasversal) {
+                equipoFiltroSelect.value = '{{ ficha.id_equipo_id }}';
+                if (tipo) {
+                    tipoCompetenciaHint.textContent = 'Competencia técnica: instructores del equipo ejecutor de la ficha (incluye dinamizador).';
+                } else {
+                    tipoCompetenciaHint.textContent = 'Selecciona un resultado para cargar instructores elegibles.';
+                }
+            } else {
+                tipoCompetenciaHint.textContent = 'Competencia transversal: puedes filtrar instructores por equipo ejecutor.';
+            }
+        }
+
+        competenciaSelect.addEventListener('change', function () {
+            actualizarCompetenciaSeleccionadaInfo();
+            instructorSelect.value = '';
+            state.resumenInstructor = null;
+            if (!state.editMode) {
+                state.horasResultados = {};
+                state.horasFijadas = {};
+                state.objetivoHoras = 0;
+            }
+            updateFiltroEquipoState();
+            loadDatos();
+        });
+
+        if (resultadoFiltro) {
+            resultadoFiltro.addEventListener('input', function () {
+                const texto = (resultadoFiltro.value || '').toLowerCase();
+                Array.from(resultadoSelect.options).forEach(function (opt) {
+                    if (!opt.value) { opt.style.display = ''; return; }
+                    opt.style.display = (opt.textContent || '').toLowerCase().includes(texto) ? '' : 'none';
+                });
+            });
+        }
+
+        if (resultadoSelect) {
+            resultadoSelect.addEventListener('change', function () {
+                if (resultadoSelect.disabled) { return; }
+                clearAlerts();
+                const opt = resultadoSelect.options[resultadoSelect.selectedIndex];
+                if (!opt || !opt.value) {
+                    competenciaSelect.value = '';
+                    actualizarCompetenciaSeleccionadaInfo();
+                    instructorSelect.value = '';
+                    state.resumenInstructor = null;
+                    if (!state.editMode) {
+                        state.horasResultados = {};
+                        state.horasFijadas = {};
+                        state.objetivoHoras = 0;
+                    }
+                    updateFiltroEquipoState();
+                    loadDatos();
+                    return;
+                }
+                const competenciaId = String(opt.getAttribute('data-competencia-id') || '');
+                if (!competenciaId) {
+                    showAlert('El resultado seleccionado no tiene competencia asociada.', 'warning');
+                    return;
+                }
+                // Limpiar drafts previos y marcar el resultado seleccionado como checked
+                Object.keys(state.resultadosAsignacionDraft).forEach(function (k) {
+                    delete state.resultadosAsignacionDraft[k];
+                });
+                state.resultadosAsignacionDraft[String(opt.value)] = { checked: true };
+                competenciaSelect.value = competenciaId;
+                competenciaSelect.dispatchEvent(new Event('change'));
+            });
+        }
+
+        instructorSelect.addEventListener('change', function () {
+            loadDatos();
+        });
+
+        equipoFiltroSelect.addEventListener('change', function () {
+            if (equipoFiltroSelect.disabled) {
+                return;
+            }
+            instructorSelect.value = '';
+            state.resumenInstructor = null;
+            loadDatos();
+        });
+
+        ambienteSelect.addEventListener('change', function () {
+            state.selectedDates = new Set();
+            loadDatos();
+        });
+
+        btnLimpiar.addEventListener('click', function () {
+            state.selectedDates = new Set();
+            Array.from(calendarioBody.querySelectorAll('.dia-seleccionado')).forEach(function (node) {
+                node.classList.remove('dia-seleccionado');
+            });
+            competenciaSelect.value = '';
+            if (resultadoSelect) {
+                resultadoSelect.value = '';
+                Array.from(resultadoSelect.options).forEach(function (opt) { opt.style.display = ''; });
+            }
+            if (resultadoFiltro) {
+                resultadoFiltro.value = '';
+            }
+            if (competenciaNombreInput) {
+                competenciaNombreInput.value = '';
+            }
+            instructorSelect.innerHTML = '<option value="">Seleccionar...</option>';
+            instructorSelect.disabled = true;
+            state.resumenInstructor = null;
+            state.competenciaActual = null;
+            state.competenciaIdActual = null;
+            state.horasResultados = {};
+            state.horasFijadas = {};
+            state.objetivoHoras = 0;
+            updateFiltroEquipoState();
+            resultadosWrap.style.display = 'none';
+            resultadosBody.innerHTML = '';
+            clearAlerts();
+            resultadoContenedor.innerHTML = '';
+            updateProjectionCounters();
+        });
+
+        horarioEspecialCheck.addEventListener('change', function () {
+            updateHorarioEspecialUI();
+            clearAlerts();
+            updateProjectionCounters();
+        });
+
+        horaInicioEspecial.addEventListener('change', function () {
+            syncHorarioEspecialHint();
+            clearAlerts();
+            updateProjectionCounters();
+        });
+
+        horaFinEspecial.addEventListener('change', function () {
+            syncHorarioEspecialHint();
+            clearAlerts();
+            updateProjectionCounters();
+        });
+
+        if (objetivoHorasInput) {
+            objetivoHorasInput.addEventListener('change', function () {
+                const maximo = round2(Number(state.maxHorasCompetencia || 0));
+                let nuevoObjetivo = round2(Number(objetivoHorasInput.value || 0));
+                if (nuevoObjetivo < 0) { nuevoObjetivo = 0; }
+                if (nuevoObjetivo > maximo) { nuevoObjetivo = maximo; }
+                state.objetivoHoras = nuevoObjetivo;
+                objetivoHorasInput.value = String(nuevoObjetivo);
+                actualizarObjetivoHints();
+                updateProjectionCounters();
+            });
+        }
+
+        resultadosBody.addEventListener('change', function (event) {
+            if (event.target && event.target.classList.contains('resultado-horas')) {
+                const rid = String(event.target.getAttribute('data-resultado-id') || '');
+                let val = round2(Number(event.target.value || 0));
+                if (val < 0) { val = 0; }
+                state.horasResultados[rid] = val;
+                event.target.value = String(val);
+                actualizarObjetivoHints();
+                updateProjectionCounters();
+                return;
+            }
+            capturarDraftResultados();
+            renderResultadosCompetencia(state.resultadosCompetencia);
+            updateProjectionCounters();
+        });
+
+        resultadosBody.addEventListener('click', function (event) {
+            const btnFijar = event.target.closest('.btn-fijar-horas');
+            if (btnFijar) {
+                const ridFijar = String(btnFijar.getAttribute('data-resultado-id') || '');
+                if (ridFijar) {
+                    capturarDraftResultados();
+                    state.horasFijadas[ridFijar] = true;
+
+                    const inputHorasFijar = resultadosBody.querySelector('.resultado-horas[data-resultado-id="' + ridFijar + '"]');
+                    const btnCambiarFijar = resultadosBody.querySelector('.btn-cambiar-horas[data-resultado-id="' + ridFijar + '"]');
+                    if (inputHorasFijar) {
+                        inputHorasFijar.disabled = true;
+                    }
+                    btnFijar.disabled = true;
+                    if (btnCambiarFijar) {
+                        btnCambiarFijar.disabled = false;
+                    }
+                }
+                return;
+            }
+
+            const btnCambiar = event.target.closest('.btn-cambiar-horas');
+            if (btnCambiar) {
+                const ridCambiar = String(btnCambiar.getAttribute('data-resultado-id') || '');
+                if (ridCambiar) {
+                    capturarDraftResultados();
+                    state.horasFijadas[ridCambiar] = false;
+
+                    const inputHorasCambiar = resultadosBody.querySelector('.resultado-horas[data-resultado-id="' + ridCambiar + '"]');
+                    const btnFijarCambiar = resultadosBody.querySelector('.btn-fijar-horas[data-resultado-id="' + ridCambiar + '"]');
+                    if (inputHorasCambiar) {
+                        inputHorasCambiar.disabled = false;
+                        inputHorasCambiar.focus();
+                        inputHorasCambiar.select();
+                    }
+                    btnCambiar.disabled = true;
+                    if (btnFijarCambiar) {
+                        btnFijarCambiar.disabled = false;
+                    }
+                }
+            }
+        });
+
+        btnGuardar.addEventListener('click', function () {
+            clearAlerts();
+            resultadoContenedor.innerHTML = '';
+
+            if (!state.editMode && !politicaMes.permiteCrear) {
+                showAlert(politicaMes.mensajeCreacion || 'La creación no está habilitada para este mes.', 'warning');
+                return;
+            }
+
+            if (state.editMode && !politicaMes.permiteEditar) {
+                showAlert(politicaMes.mensajeEdicion || 'La edición no está habilitada para este mes.', 'warning');
+                return;
+            }
+
+            if (!competenciaSelect.value || !instructorSelect.value || state.selectedDates.size === 0) {
+                showAlert('Debes seleccionar competencia, instructor y al menos un día.', 'warning');
+                return;
+            }
+
+            let asignacionesResultados = [];
+            try {
+                asignacionesResultados = buildAsignacionesResultados();
+            } catch (error) {
+                showAlert(error.message, 'warning');
+                return;
+            }
+
+            if (!asignacionesResultados.length) {
+                showAlert('No se pudo crear la programación: debes seleccionar al menos un resultado con el check.', 'warning');
+                return;
+            }
+
+            const horasEspeciales = horasEspecialesPorDia();
+            if (horarioEspecialCheck.checked && horasEspeciales === null) {
+                showAlert('El horario especial es inválido. Verifica inicio/fin dentro del rango base y horas completas.', 'warning');
+                return;
+            }
+
+            if (state.objetivoHoras > state.maxHorasCompetencia) {
+                showAlert('El objetivo de horas no puede superar el 100% de la competencia.', 'warning');
+                return;
+            }
+
+            const sumaResultados = totalHorasResultados();
+            if (sumaResultados > state.maxHorasCompetencia && state.maxHorasCompetencia > 0) {
+                showAlert('La suma de horas de resultados supera las horas máximas de la competencia.', 'warning');
+                return;
+            }
+
+            if (state.objetivoHoras < state.recomendadoHoras) {
+                showAlert('Aviso: el objetivo seleccionado está por debajo del 75% recomendado.', 'warning');
+            }
+
+            const payload = {
+                competencia_id: Number(competenciaSelect.value),
+                instructor_id: Number(instructorSelect.value),
+                ambiente_id: Number(ambienteSelect.value),
+                equipo_filtro_id: equipoFiltroSelect.value ? Number(equipoFiltroSelect.value) : null,
+                fechas: Array.from(state.selectedDates).sort(),
+                asignaciones_resultados: asignacionesResultados,
+                objetivo_competencia_horas: round2(state.objetivoHoras),
+                horas_resultados: buildHorasResultadosPayload(),
+                horario_especial: {
+                    habilitado: Boolean(horarioEspecialCheck.checked),
+                    hora_inicio: horaInicioEspecial.value,
+                    hora_fin: horaFinEspecial.value,
+                },
+            };
+
+            const endpointGuardar = state.editMode && state.editProgramacionId
+                ? urlEditar(state.editProgramacionId)
+                : urlGuardar;
+
+            const esEdicion = Boolean(state.editMode && state.editProgramacionId);
+            const diasPreviosEdicion = esEdicion ? state.fechasProgramacionActual.size : 0;
+            const horasPreviasEdicion = esEdicion ? Number(state.horasBaseEdicion || 0) : 0;
+
+            btnGuardar.disabled = true;
+            setLoading(true);
+            fetch(endpointGuardar, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken'),
+                },
+                body: JSON.stringify(payload),
+            })
+                .then(toJsonText)
+                .then(function (data) {
+                    const resultado = data.resultado || {};
+                    const creadas = Number(resultado.creadas || 0);
+                    const horasNuevas = Number(resultado.horas_totales_nuevas || 0);
+                    const rechazadas = resultado.rechazadas || [];
+                    const avisos = resultado.avisos || [];
+
+                    let html = '<div class="resultado-card">';
+                    if (esEdicion) {
+                        const deltaDias = creadas - diasPreviosEdicion;
+                        const deltaHoras = horasNuevas - horasPreviasEdicion;
+
+                        html += '<p><strong>Días finales:</strong> ' + creadas + '</p>';
+                        html += '<p><strong>Horas finales:</strong> ' + horasNuevas + '</p>';
+
+                        if (deltaDias !== 0 || deltaHoras !== 0) {
+                            let mensajeCambio = '<strong>Cambio neto:</strong> ';
+                            if (deltaDias < 0) {
+                                mensajeCambio += 'se eliminaron ' + Math.abs(deltaDias) + ' día(s)';
+                            } else if (deltaDias > 0) {
+                                mensajeCambio += 'se agregaron ' + deltaDias + ' día(s)';
+                            } else {
+                                mensajeCambio += 'sin cambio de días';
+                            }
+
+                            mensajeCambio += ', ';
+
+                            if (deltaHoras < 0) {
+                                mensajeCambio += 'se restaron ' + Math.abs(deltaHoras) + ' hora(s)';
+                            } else if (deltaHoras > 0) {
+                                mensajeCambio += 'se sumaron ' + deltaHoras + ' hora(s)';
+                            } else {
+                                mensajeCambio += 'sin cambio de horas';
+                            }
+
+                            html += '<p>' + mensajeCambio + '.</p>';
+                        } else {
+                            html += '<p><strong>Cambio neto:</strong> sin variación de días ni horas.</p>';
+                        }
+                    } else {
+                        html += '<p><strong>Días creados:</strong> ' + creadas + '</p>';
+                        html += '<p><strong>Horas nuevas:</strong> ' + horasNuevas + '</p>';
+                    }
+
+                    html += '<p><strong>Resultados asignados:</strong> ' + (resultado.resultados_asignados || 0) + '</p>';
+
+                    if (data.edicion && data.edicion.programacion_nueva_id) {
+                        html += '<p><strong>Edición aplicada:</strong> nueva programación #' + data.edicion.programacion_nueva_id + '</p>';
+                    }
+
+                    if (rechazadas.length > 0) {
+                        html += '<p><strong>Días rechazados:</strong></p><ul>';
+                        rechazadas.forEach(function (item) {
+                            html += '<li>' + item.fecha + ': ' + item.motivo + '</li>';
+                        });
+                        html += '</ul>';
+                    }
+
+                    if (avisos.length > 0) {
+                        html += '<p><strong>Avisos:</strong></p><ul>';
+                        avisos.forEach(function (aviso) {
+                            html += '<li>' + aviso + '</li>';
+                        });
+                        html += '</ul>';
+                    }
+                    html += '</div>';
+                    resultadoContenedor.innerHTML = html;
+
+                    if (creadas === 0) {
+                        showAlert('Ningún día fue guardado. Revisa los días rechazados en el resumen.', 'error');
+                    } else if (rechazadas.length > 0) {
+                        showAlert('Guardado con advertencias: ' + rechazadas.length + ' día(s) rechazado(s). Revisa el resumen.', 'warning');
+                    }
+                    if (state.competenciaActual && data.competencia && Number(data.competencia.id) === Number(state.competenciaActual.id)) {
+                        state.competenciaActual.horas_programadas = Number(data.competencia.horas_programadas || state.competenciaActual.horas_programadas);
+                        state.competenciaActual.horas_max = Number(data.competencia.horas_max || state.competenciaActual.horas_max);
+                    }
+
+                    if (typeof resultado.objetivo_horas !== 'undefined') {
+                        state.objetivoHoras = round2(Number(resultado.objetivo_horas));
+                    }
+                    if (typeof resultado.recomendado_horas !== 'undefined') {
+                        state.recomendadoHoras = round2(Number(resultado.recomendado_horas));
+                    }
+                    if (Array.isArray(resultado.horas_resultados)) {
+                        state.horasResultados = {};
+                        state.horasFijadas = {};
+                        resultado.horas_resultados.forEach(function (item) {
+                            state.horasResultados[String(item.resultado_id)] = round2(Number(item.horas || 0));
+                            state.horasFijadas[String(item.resultado_id)] = Boolean(item.fijada || item.horas_fijadas);
+                        });
+                    }
+
+                    if (data.edicion && data.edicion.programacion_nueva_id) {
+                        state.editProgramacionId = Number(data.edicion.programacion_nueva_id);
+                        state.fechasProgramacionActual = new Set(payload.fechas || []);
+                        const horasBaseEdit = horasEspecialesPorDia();
+                        state.horasBaseEdicion = state.fechasProgramacionActual.size * (horasBaseEdit || state.horasPorDia);
+                        modoEdicionId.textContent = '#' + String(state.editProgramacionId);
+                    }
+
+                    state.selectedDates = new Set();
+                    loadDatos();
+                })
+                .catch(function (err) {
+                    const accion = esEdicion ? 'actualizar' : 'crear';
+                    showAlert('No se pudo ' + accion + ' la programación: ' + err.message, 'error');
+                })
+                .finally(function () {
+                    setLoading(false);
+                    updateProjectionCounters();
+                });
+        });
+
+        cargarDetalleEdicionSiExiste().finally(function () {
+            actualizarCompetenciaSeleccionadaInfo();
+            updateHorarioEspecialUI();
+            updateFiltroEquipoState();
+            loadDatos();
+        });
+    })();
+</script>
+{% endblock %}

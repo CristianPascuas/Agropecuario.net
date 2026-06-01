@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detalle de programaciones - Ficha {{ ficha.codigo_ficha }}</title>
+    <style>
+        :root {
+            --bg: #f3f6f4;
+            --card: #ffffff;
+            --line: #d7dfda;
+            --text: #1f2d24;
+            --muted: #58675d;
+            --accent: #1f6a44;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        .page {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 16px;
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            text-decoration: none;
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid var(--accent);
+            color: #fff;
+            background: var(--accent);
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .hero {
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 12px;
+        }
+
+        .hero h2 {
+            margin: 0 0 6px;
+            font-size: 22px;
+        }
+
+        .meta {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 8px;
+            font-size: 14px;
+            color: var(--muted);
+        }
+
+        .filters {
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+
+        .filters h3 {
+            margin: 0 0 8px;
+            font-size: 16px;
+        }
+
+        .filters-form {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 8px;
+        }
+
+        .filters-form label {
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        .filters-form input,
+        .filters-form select {
+            width: 100%;
+            margin-top: 4px;
+            border: 1px solid #cfd7d2;
+            border-radius: 8px;
+            padding: 7px;
+            font-size: 14px;
+            background: #fff;
+            color: var(--text);
+        }
+
+        .filters-actions {
+            display: flex;
+            gap: 8px;
+            align-items: end;
+        }
+
+        .btn-outline {
+            text-decoration: none;
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            background: #fff;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .month-card {
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 10px;
+            margin-bottom: 12px;
+        }
+
+        .month-title {
+            margin: 0 0 10px;
+            font-size: 18px;
+        }
+
+        .calendar-wrap {
+            overflow-x: auto;
+            overflow-y: auto;
+            max-height: 76vh;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            min-width: 1100px;
+        }
+
+        th,
+        td {
+            border: 1px solid var(--line);
+            vertical-align: top;
+        }
+
+        th {
+            background: #e8f0ea;
+            padding: 8px;
+            font-size: 13px;
+            text-align: center;
+        }
+
+        td {
+            height: 190px;
+            padding: 6px;
+            background: #fff;
+        }
+
+        .day-out {
+            background: #f5f7f6;
+        }
+
+        .day-number {
+            font-size: 13px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .item-card {
+            border: 1px solid #cfd7d2;
+            border-radius: 8px;
+            padding: 6px;
+            margin-bottom: 6px;
+            font-size: 12px;
+        }
+
+        .item-card strong {
+            color: #1c3a2b;
+        }
+
+        .result-box {
+            margin-top: 4px;
+            max-height: 74px;
+            overflow-y: auto;
+            background: #fff;
+            border: 1px solid #cfd7d2;
+            border-radius: 6px;
+            padding: 4px;
+        }
+
+        .btn-ver-resultados {
+            border-radius: 999px;
+            border: 1px solid #b9d7c4;
+            background: #f3fbf6;
+            color: #1f6a44;
+            font-weight: 600;
+            font-size: 12px;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+
+        .btn-ver-resultados:hover {
+            background: #e6f5ec;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(16, 16, 16, 0.55);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            z-index: 999;
+        }
+
+        .modal-overlay.open {
+            display: flex;
+        }
+
+        .modal-dialog {
+            width: 100%;
+            max-width: 760px;
+            max-height: 90vh;
+            overflow: auto;
+            background: #fff;
+            border-radius: 12px;
+            border: 1px solid #d7dfda;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 16px;
+            border-bottom: 1px solid #d7dfda;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+        }
+
+        .modal-close {
+            border: none;
+            background: transparent;
+            font-size: 24px;
+            cursor: pointer;
+            line-height: 1;
+        }
+
+        .modal-form {
+            padding: 16px;
+        }
+
+        .resultados-lista {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: grid;
+            gap: 8px;
+        }
+
+        .resultados-lista li {
+            padding: 9px 10px;
+            border: 1px solid #dfe5e0;
+            border-radius: 8px;
+            background: #f9fcfa;
+            font-size: 13px;
+        }
+
+        @media (max-width: 768px) {
+            .page {
+                padding: 10px;
+            }
+
+            td {
+                height: 170px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="toolbar">
+            <a class="btn" href="{{ url_regreso }}">Volver a consultar programaciones</a>
+        </div>
+
+        <section class="hero">
+            <h2>Ficha {{ ficha.codigo_ficha }} - Detalle completo de programaciones</h2>
+            <div class="meta">
+                <div><strong>Programa:</strong> {{ ficha.id_programa_formacion.nombre }}</div>
+                <div><strong>Horario de la ficha:</strong> {{ horario_ficha }}</div>
+                <div><strong>Duración:</strong> {{ ficha.fecha_inicio }} a {{ ficha.fecha_fin }}</div>
+                <div><strong>Total registros:</strong> {{ total_registros }}</div>
+            </div>
+        </section>
+
+        <section class="filters">
+            <h3>Búsqueda y filtros</h3>
+            <form class="filters-form" method="get">
+                <label>
+                    Año
+                    <select name="anio">
+                        <option value="">Todos</option>
+                        {% for anio in anios_ficha %}
+                            <option value="{{ anio }}" {% if filtro_anio == anio %}selected{% endif %}>{{ anio }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label>
+                    Mes
+                    <select name="mes">
+                        <option value="">Todos</option>
+                        {% for numero_mes, nombre_mes in meses_filtro %}
+                            <option value="{{ numero_mes }}" {% if filtro_mes == numero_mes %}selected{% endif %}>{{ nombre_mes }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label>
+                    Instructor
+                    <select name="instructor_id">
+                        <option value="">Todos</option>
+                        {% for instructor in instructores_disponibles %}
+                            <option value="{{ instructor.id_usuario }}" {% if filtro_instructor_id == instructor.id_usuario %}selected{% endif %}>{{ instructor.nombre }} {{ instructor.apellido }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label>
+                    Nombre del resultado
+                    <input type="text" name="resultado" value="{{ filtro_resultado }}" placeholder="Ejemplo: Interpretar, aplicar...">
+                </label>
+                <div class="filters-actions">
+                    <button class="btn" type="submit">Filtrar</button>
+                    <a class="btn-outline" href="?">Limpiar</a>
+                </div>
+            </form>
+        </section>
+
+        {% if not meses_detalle %}
+            <section class="month-card">
+                <span style="font-size:14px; color:#607064;">No hay meses que coincidan con el filtro seleccionado.</span>
+            </section>
+        {% endif %}
+
+        {% for mes in meses_detalle %}
+            <section class="month-card">
+                <h3 class="month-title">{{ mes.nombre }}</h3>
+                <div class="calendar-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Lun</th>
+                                <th>Mar</th>
+                                <th>Mié</th>
+                                <th>Jue</th>
+                                <th>Vie</th>
+                                <th>Sab</th>
+                                <th>Dom</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for semana in mes.semanas %}
+                                <tr>
+                                    {% for celda in semana %}
+                                        <td class="{% if not celda.in_month %}day-out{% endif %}">
+                                            {% if celda.in_month %}
+                                                <div class="day-number">{{ celda.day }}</div>
+                                                {% if celda.in_range %}
+                                                    {% for item in celda.items %}
+                                                        <article class="item-card" style="background: {{ item.color }};">
+                                                            <div><strong>Dinamizador:</strong> {{ item.dinamizador }}</div>
+                                                            <div><strong>Instructor:</strong> {{ item.instructor }}</div>
+                                                            <div><strong>Horario:</strong> {{ item.horario }}</div>
+                                                            <div><strong>Horas jornada:</strong> {{ item.horas_dia }}</div>
+                                                            <div><strong>Competencia:</strong> {{ item.competencia }}</div>
+                                                            {% if item.resultados %}
+                                                                <button
+                                                                    type="button"
+                                                                    class="btn-ver-resultados"
+                                                                    data-resultados='{{ item.resultados|join:"|||"|escapejs }}'
+                                                                    style="margin-top: 6px;"
+                                                                >
+                                                                    Ver resultados ({{ item.resultados|length }})
+                                                                </button>
+                                                            {% else %}
+                                                                <div style="font-size:12px; color:#607064; margin-top:4px;">Sin resultados</div>
+                                                            {% endif %}
+                                                        </article>
+                                                    {% empty %}
+                                                        <span style="font-size:12px; color:#607064;">Sin programación</span>
+                                                    {% endfor %}
+                                                {% endif %}
+                                            {% endif %}
+                                        </td>
+                                    {% endfor %}
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+        </section>
+        {% endfor %}
+    </div>
+
+    <div class="modal-overlay" id="modalResultados" aria-hidden="true">
+        <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="tituloModalResultados">
+            <div class="modal-header">
+                <h3 id="tituloModalResultados">Resultados asignados del día</h3>
+                <button type="button" class="modal-close" id="btnCerrarModalResultados" aria-label="Cerrar">&times;</button>
+            </div>
+            <div class="modal-form">
+                <ul id="listaResultadosModal" class="resultados-lista"></ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            const modal = document.getElementById('modalResultados');
+            const cerrar = document.getElementById('btnCerrarModalResultados');
+            const lista = document.getElementById('listaResultadosModal');
+
+            if (!modal || !cerrar || !lista) {
+                return;
+            }
+
+            function abrirModal(resultados) {
+                lista.innerHTML = '';
+                if (!resultados.length) {
+                    const li = document.createElement('li');
+                    li.textContent = 'Sin resultados';
+                    lista.appendChild(li);
+                }
+                resultados.forEach(function (item) {
+                    const li = document.createElement('li');
+                    li.textContent = item;
+                    lista.appendChild(li);
+                });
+                modal.classList.add('open');
+                modal.setAttribute('aria-hidden', 'false');
+            }
+
+            function cerrarModal() {
+                modal.classList.remove('open');
+                modal.setAttribute('aria-hidden', 'true');
+            }
+
+            function parseResultados(raw) {
+                if (!raw) {
+                    return [];
+                }
+
+                let normalizado = raw;
+                try {
+                    normalizado = JSON.parse('"' + raw.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"');
+                } catch (e) {
+                    normalizado = raw;
+                }
+
+                normalizado = normalizado
+                    .replace(/\\u000D\\u000A|\\u000A|\\u000D/g, ' ')
+                    .replace(/\r\n?|\n/g, ' ');
+
+                return normalizado
+                    .split('|||')
+                    .map(function (item) {
+                        return item.replace(/\s+/g, ' ').trim();
+                    })
+                    .filter(Boolean);
+            }
+
+            document.addEventListener('click', function (event) {
+                const boton = event.target.closest('.btn-ver-resultados');
+                if (!boton) {
+                    return;
+                }
+                const raw = boton.getAttribute('data-resultados') || '';
+                const resultados = parseResultados(raw);
+                abrirModal(resultados);
+            });
+
+            cerrar.addEventListener('click', cerrarModal);
+            modal.addEventListener('click', function (event) {
+                if (event.target === modal) {
+                    cerrarModal();
+                }
+            });
+
+            document.addEventListener('keydown', function (event) {
+                if (event.key === 'Escape' && modal.classList.contains('open')) {
+                    cerrarModal();
+                }
+            });
+        })();
+    </script>
+</body>
+</html>

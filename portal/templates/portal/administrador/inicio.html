@@ -1,0 +1,14 @@
+{% extends 'portal/base_portal.html' %}
+
+{% block portal_content %}
+<h3>Panel de Administración</h3>
+
+{% if pendientes_count > 0 %}
+<div style="background:#fff3cd;border:1px solid #ffc107;padding:12px 16px;border-radius:6px;margin-bottom:16px;">
+    <strong>{{ pendientes_count }}</strong> usuario{{ pendientes_count|pluralize:"s" }} pendiente{{ pendientes_count|pluralize:"s" }} de aprobación.
+    <a href="{% url 'administrador_usuarios' %}">Ver usuarios</a>
+</div>
+{% endif %}
+
+<p>Desde aquí puedes gestionar usuarios, equipos, curricular y reportes.</p>
+{% endblock %}
