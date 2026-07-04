@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # agrepecuario.net — Sistema de Programación Académica SENA
 
 Sistema web para la gestión y programación académica de fichas de formación del **SENA**, orientado a digitalizar y controlar el proceso de radicación, programación mensual de competencias y seguimiento por resultados de aprendizaje de los instructores SENA.
@@ -111,3 +112,6 @@ Acceder en: `http://127.0.0.1:8000`
 - `DEBUG = True` solo en desarrollo; desactivar en producción y configurar `ALLOWED_HOSTS`.
 - Las credenciales de base de datos deben gestionarse mediante variables de entorno, nunca en el código fuente.
  
+=======
+# agrepecuario.net - Django + MySQL
+>>>>>>> origin/main
