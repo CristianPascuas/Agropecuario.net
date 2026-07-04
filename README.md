@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # agrepecuario.net — Sistema de Programación Académica SENA
 
 Sistema web para la gestión y programación académica de fichas de formación del **SENA**, orientado a digitalizar y controlar el proceso de radicación, programación mensual de competencias y seguimiento por resultados de aprendizaje de los instructores SENA.
