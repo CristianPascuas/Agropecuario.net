@@ -110,7 +110,3 @@ Acceder en: `http://127.0.0.1:8000`
 - La `SECRET_KEY` por defecto es solo para desarrollo. **Reemplazarla siempre en producción.**
 - `DEBUG = True` solo en desarrollo; desactivar en producción y configurar `ALLOWED_HOSTS`.
 - Las credenciales de base de datos deben gestionarse mediante variables de entorno, nunca en el código fuente.
- 
-=======
-# agrepecuario.net - Django + MySQL
->>>>>>> origin/main
